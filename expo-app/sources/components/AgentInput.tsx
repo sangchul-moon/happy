@@ -73,6 +73,8 @@ interface AgentInputProps {
     minHeight?: number;
     profileId?: string | null;
     onProfileClick?: () => void;
+    onAttachFile?: () => void;
+    attachedFilesView?: React.ReactNode;
 }
 
 const MAX_CONTEXT_SIZE = 190000;
@@ -945,12 +947,42 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         />
                     </View>
 
+                    {/* Attached files view */}
+                    {props.attachedFilesView}
+
                     {/* Action buttons below input */}
                     <View style={styles.actionButtonsContainer}>
                         <View style={{ flexDirection: 'column', flex: 1, gap: 2 }}>
                             {/* Row 1: Settings, Profile (FIRST), Agent, Abort, Git Status */}
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <View style={styles.actionButtonsLeft}>
+
+                                {/* Attach file button */}
+                                {props.onAttachFile && (
+                                    <Pressable
+                                        onPress={() => {
+                                            hapticsLight();
+                                            props.onAttachFile?.();
+                                        }}
+                                        hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
+                                        style={(p) => ({
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            borderRadius: Platform.select({ default: 16, android: 20 }),
+                                            paddingHorizontal: 8,
+                                            paddingVertical: 6,
+                                            justifyContent: 'center',
+                                            height: 32,
+                                            opacity: p.pressed ? 0.7 : 1,
+                                        })}
+                                    >
+                                        <Ionicons
+                                            name="attach"
+                                            size={18}
+                                            color={theme.colors.button.secondary.tint}
+                                        />
+                                    </Pressable>
+                                )}
 
                                 {/* Settings button */}
                                 {props.onPermissionModeChange && (

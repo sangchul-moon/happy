@@ -927,6 +927,11 @@ export const en: TranslationStructure = {
             confirm: 'Delete',
             cancel: 'Cancel',
         },
+    },
+    fileAttachment: {
+        uploading: 'Uploading...',
+        uploaded: 'Uploaded',
+        failed: 'Failed',
     }
 } as const;
 

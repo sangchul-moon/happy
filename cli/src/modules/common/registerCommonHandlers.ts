@@ -1,7 +1,7 @@
 import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, stat, mkdir } from 'fs/promises';
 import { createHash } from 'crypto';
 import { join } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
@@ -107,6 +107,19 @@ interface DifftasticResponse {
     exitCode?: number;
     stdout?: string;
     stderr?: string;
+    error?: string;
+}
+
+interface UploadFileRequest {
+    fileName: string;
+    content: string; // base64 encoded
+    subPath?: string; // optional subdirectory within working directory
+}
+
+interface UploadFileResponse {
+    success: boolean;
+    path?: string; // full path where file was saved
+    size?: number; // file size in bytes
     error?: string;
 }
 
@@ -516,6 +529,57 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Failed to run difftastic'
+            };
+        }
+    });
+
+    // Upload file handler - receives files from mobile client
+    rpcHandlerManager.registerHandler<UploadFileRequest, UploadFileResponse>('uploadFile', async (data) => {
+        logger.debug('Upload file request:', data.fileName, 'subPath:', data.subPath);
+
+        try {
+            // Sanitize filename - remove path separators to prevent directory traversal
+            const sanitizedFileName = data.fileName.replace(/[/\\]/g, '_');
+
+            // Build target path
+            let targetDir = workingDirectory;
+            if (data.subPath) {
+                // Validate subPath doesn't escape working directory
+                const fullSubPath = join(workingDirectory, data.subPath);
+                const validation = validatePath(fullSubPath, workingDirectory);
+                if (!validation.valid) {
+                    return { success: false, error: validation.error };
+                }
+                targetDir = fullSubPath;
+            }
+
+            const targetPath = join(targetDir, sanitizedFileName);
+
+            // Validate final path is within working directory
+            const finalValidation = validatePath(targetPath, workingDirectory);
+            if (!finalValidation.valid) {
+                return { success: false, error: finalValidation.error };
+            }
+
+            // Ensure target directory exists
+            await mkdir(targetDir, { recursive: true });
+
+            // Decode and write file
+            const buffer = Buffer.from(data.content, 'base64');
+            await writeFile(targetPath, buffer);
+
+            logger.debug('File uploaded successfully:', targetPath, 'size:', buffer.length);
+
+            return {
+                success: true,
+                path: targetPath,
+                size: buffer.length
+            };
+        } catch (error) {
+            logger.debug('Failed to upload file:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to upload file'
             };
         }
     });

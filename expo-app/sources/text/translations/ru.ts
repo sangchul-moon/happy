@@ -934,6 +934,11 @@ export const ru: TranslationStructure = {
             confirm: 'Удалить',
             cancel: 'Отмена',
         },
+    },
+    fileAttachment: {
+        uploading: 'Загрузка...',
+        uploaded: 'Загружено',
+        failed: 'Ошибка',
     }
 } as const;
 

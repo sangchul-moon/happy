@@ -910,6 +910,11 @@ export const it: TranslationStructure = {
         friendRequestGeneric: 'Nuova richiesta di amicizia',
         friendAccepted: ({ name }: { name: string }) => `Ora sei amico di ${name}`,
         friendAcceptedGeneric: 'Richiesta di amicizia accettata',
+    },
+    fileAttachment: {
+        uploading: 'Caricamento...',
+        uploaded: 'Caricato',
+        failed: 'Fallito',
     }
 } as const;
 

@@ -1,5 +1,6 @@
 import { AgentContentView } from '@/components/AgentContentView';
 import { AgentInput } from '@/components/AgentInput';
+import { FileAttachment } from '@/components/FileAttachment';
 import { getSuggestions } from '@/components/autocomplete/suggestions';
 import { ChatHeaderView } from '@/components/ChatHeaderView';
 import { ChatList } from '@/components/ChatList';
@@ -7,6 +8,7 @@ import { Deferred } from '@/components/Deferred';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
+import { useFileUpload, UploadedFile } from '@/hooks/useFileUpload';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
@@ -179,6 +181,9 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage);
 
+    // File upload hook
+    const fileUpload = useFileUpload(sessionId);
+
     // Handle dismissing CLI version warning
     const handleDismissCliWarning = React.useCallback(() => {
         if (machineId && cliVersion) {
@@ -200,6 +205,24 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const updateModelMode = React.useCallback((mode: 'default' | 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite') => {
         storage.getState().updateSessionModelMode(sessionId, mode);
     }, [sessionId]);
+
+    // Handle file attachment button press
+    const handleAttachFile = React.useCallback(async () => {
+        const newFiles = await fileUpload.pickFiles();
+        if (newFiles && newFiles.length > 0) {
+            // Upload files immediately after picking
+            fileUpload.uploadAllPending(newFiles);
+        }
+    }, [fileUpload]);
+
+    // Handle file retry
+    const handleRetryFile = React.useCallback((file: UploadedFile) => {
+        // Find the file with URI from the files list
+        const fileWithUri = fileUpload.files.find(f => f.id === file.id);
+        if (fileWithUri) {
+            fileUpload.uploadFile(fileWithUri as UploadedFile & { uri?: string });
+        }
+    }, [fileUpload]);
 
     // Memoize header-dependent styles to prevent re-renders
     const headerDependentStyles = React.useMemo(() => ({
@@ -319,6 +342,15 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                 contextSize: session.latestUsage.contextSize
             } : undefined}
             alwaysShowContextSize={alwaysShowContextSize}
+            // File attachment
+            onAttachFile={handleAttachFile}
+            attachedFilesView={
+                <FileAttachment
+                    files={fileUpload.files}
+                    onRemove={fileUpload.removeFile}
+                    onRetry={handleRetryFile}
+                />
+            }
         />
     );
 

@@ -912,6 +912,11 @@ export const es: TranslationStructure = {
             confirm: 'Eliminar',
             cancel: 'Cancelar',
         },
+    },
+    fileAttachment: {
+        uploading: 'Subiendo...',
+        uploaded: 'Subido',
+        failed: 'Fallido',
     }
 } as const;
 

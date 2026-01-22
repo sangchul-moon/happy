@@ -913,5 +913,10 @@ export const ja: TranslationStructure = {
         friendRequestGeneric: '新しい友達リクエスト',
         friendAccepted: ({ name }: { name: string }) => `${name}さんと友達になりました`,
         friendAcceptedGeneric: '友達リクエストが承認されました',
+    },
+    fileAttachment: {
+        uploading: 'アップロード中...',
+        uploaded: 'アップロード完了',
+        failed: '失敗',
     }
 } as const;

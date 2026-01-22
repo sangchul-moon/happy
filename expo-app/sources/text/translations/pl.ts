@@ -935,6 +935,11 @@ export const pl: TranslationStructure = {
             confirm: 'Usuń',
             cancel: 'Anuluj',
         },
+    },
+    fileAttachment: {
+        uploading: 'Przesyłanie...',
+        uploaded: 'Przesłano',
+        failed: 'Błąd',
     }
 } as const;
 

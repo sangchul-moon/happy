@@ -1,0 +1,108 @@
+version: '3.8'
+
+networks:
+  proxy-network:
+    external: true
+  happy-internal:
+    driver: bridge
+
+services:
+  happy-server:
+    container_name: happy-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "npx prisma migrate deploy --schema /app/prisma/schema.prisma && yarn start"
+    expose:
+      - "3005"
+    networks:
+      - proxy-network
+      - happy-internal
+    volumes:
+      - ./prisma:/app/prisma  # prisma 폴더 마운트
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@happy-postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://happy-redis:6379
+      - HANDY_MASTER_SECRET=${HANDY_MASTER_SECRET}
+      # MinIO/S3 설정
+      - S3_HOST=happy-minio
+      - S3_PORT=9000
+      - S3_USE_SSL=false
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET=happy
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL}
+      # Metrics
+      - METRICS_ENABLED=false
+    restart: unless-stopped
+    depends_on:
+      happy-postgres:
+        condition: service_healthy
+      happy-redis:
+        condition: service_started
+      happy-minio:
+        condition: service_healthy
+
+  happy-postgres:
+    container_name: happy-postgres
+    image: postgres:15-alpine
+    networks:
+      - happy-internal
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./happy_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  happy-redis:
+    container_name: happy-redis
+    image: redis:7-alpine
+    networks:
+      - happy-internal
+    volumes:
+      - ./happy_redis_data:/data
+    restart: unless-stopped
+
+  happy-minio:
+    container_name: happy-minio
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    networks:
+      - happy-internal
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./happy_minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 초기화 (버킷 생성)
+  happy-minio-init:
+    container_name: happy-minio-init
+    image: minio/mc:latest
+    networks:
+      - happy-internal
+    depends_on:
+      happy-minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://happy-minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mc mb myminio/happy --ignore-existing;
+      mc anonymous set public myminio/happy;
+      exit 0;
+      "
