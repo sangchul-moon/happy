@@ -3,6 +3,9 @@ node_modules
 dist
 .pgdata
 .minio
+happy_postgres_data/
+happy_redis_data/
+happy_minio_data/
 
 .env.local
 .env
