@@ -91,7 +91,8 @@ export class ApiSessionClient extends EventEmitter {
             reconnectionDelayMax: 5000,
             transports: ['websocket'],
             withCredentials: true,
-            autoConnect: false
+            autoConnect: false,
+            ackTimeout: 120000
         });
 
         //

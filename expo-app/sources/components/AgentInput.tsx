@@ -15,7 +15,6 @@ import { AgentInputAutocomplete } from './AgentInputAutocomplete';
 import { FloatingOverlay } from './FloatingOverlay';
 import { TextInputState, MultiTextInputHandle } from './MultiTextInput';
 import { applySuggestion } from './autocomplete/applySuggestion';
-import { GitStatusBadge, useHasMeaningfulGitStatus } from './GitStatusBadge';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSetting } from '@/sync/storage';
 import { Theme } from '@/theme';
@@ -1114,8 +1113,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     </Shaker>
                                 )}
 
-                                {/* Git Status Badge */}
-                                <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} />
+                                {/* File Browser Button */}
+                                <FileBrowserButton onPress={props.onFileViewerPress} />
                                 </View>
 
                                 {/* Send/Voice button - aligned with first row */}
@@ -1192,13 +1191,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     );
 }));
 
-// Git Status Button Component
-function GitStatusButton({ sessionId, onPress }: { sessionId?: string, onPress?: () => void }) {
-    const hasMeaningfulGitStatus = useHasMeaningfulGitStatus(sessionId || '');
-    const styles = stylesheet;
+// File Browser Button Component
+function FileBrowserButton({ onPress }: { onPress?: () => void }) {
     const { theme } = useUnistyles();
 
-    if (!sessionId || !onPress) {
+    if (!onPress) {
         return null;
     }
 
@@ -1207,29 +1204,25 @@ function GitStatusButton({ sessionId, onPress }: { sessionId?: string, onPress?:
             style={(p) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
+                justifyContent: 'center',
                 borderRadius: Platform.select({ default: 16, android: 20 }),
                 paddingHorizontal: 8,
                 paddingVertical: 6,
                 height: 32,
                 opacity: p.pressed ? 0.7 : 1,
-                flex: 1,
-                overflow: 'hidden',
             })}
             hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
             onPress={() => {
+                console.log('[FileBrowserButton] Button pressed!');
                 hapticsLight();
-                onPress?.();
+                onPress();
             }}
         >
-            {hasMeaningfulGitStatus ? (
-                <GitStatusBadge sessionId={sessionId} />
-            ) : (
-                <Octicons
-                    name="git-branch"
-                    size={16}
-                    color={theme.colors.button.secondary.tint}
-                />
-            )}
+            <Octicons
+                name="file-directory"
+                size={16}
+                color={theme.colors.button.secondary.tint}
+            />
         </Pressable>
     );
 }

@@ -40,6 +40,15 @@ export interface RpcHandlerConfig {
 }
 
 /**
+ * Raw RPC handler that returns a pre-encrypted string response
+ * Used for handlers that manage their own encryption (e.g., binary chunk transfer)
+ * Receives decrypted params but returns an already-encrypted base64 string
+ */
+export type RawRpcHandler<TRequest = any> = (
+    data: TRequest
+) => string | Promise<string>;
+
+/**
  * Result of RPC handler execution
  */
 export type RpcHandlerResult<T = any> =

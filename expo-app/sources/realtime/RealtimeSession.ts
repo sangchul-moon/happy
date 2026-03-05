@@ -26,28 +26,15 @@ export async function startRealtimeSession(sessionId: string, initialContext?: s
         return;
     }
 
-    const experimentsEnabled = storage.getState().settings.experiments;
     const agentId = __DEV__ ? config.elevenLabsAgentIdDev : config.elevenLabsAgentIdProd;
-    
+
     if (!agentId) {
         console.error('Agent ID not configured');
         return;
     }
-    
+
     try {
-        // Simple path: No experiments = no auth needed
-        if (!experimentsEnabled) {
-            currentSessionId = sessionId;
-            voiceSessionStarted = true;
-            await voiceSession.startSession({
-                sessionId,
-                initialContext,
-                agentId  // Use agentId directly, no token
-            });
-            return;
-        }
-        
-        // Experiments enabled = full auth flow
+        // Full auth flow
         const credentials = await TokenStorage.getCredentials();
         if (!credentials) {
             Modal.alert(t('common.error'), t('errors.authenticationFailed'));

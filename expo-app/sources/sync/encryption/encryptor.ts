@@ -3,6 +3,7 @@ import { encodeBase64, decodeBase64 } from "@/encryption/base64";
 import sodium from '@/encryption/libsodium.lib';
 import { decodeUTF8, encodeUTF8 } from "@/encryption/text";
 import { decryptAESGCMString, encryptAESGCMString } from "@/encryption/aes";
+import { encryptBinaryAESGCM, decryptBinaryAESGCM } from "@/encryption/aesBinary";
 
 //
 // IMPORTANT: Right now there is a bug in the AES implementation and it works only with a normal strings converted to Uint8Array. 
@@ -17,7 +18,12 @@ export interface Decryptor {
     decrypt(data: Uint8Array[]): Promise<(any | null)[]>;
 }
 
-export class SecretBoxEncryption implements Encryptor, Decryptor {
+export interface BinaryEncryptor {
+    encryptBinary(data: Uint8Array): Promise<string>;
+    decryptBinary(encrypted: string): Promise<Uint8Array | null>;
+}
+
+export class SecretBoxEncryption implements Encryptor, Decryptor, BinaryEncryptor {
     private readonly secretKey: Uint8Array;
 
     constructor(secretKey: Uint8Array) {
@@ -40,6 +46,29 @@ export class SecretBoxEncryption implements Encryptor, Decryptor {
             results.push(encryptSecretBox(item, this.secretKey));
         }
         return results;
+    }
+
+    async encryptBinary(data: Uint8Array): Promise<string> {
+        // Legacy: encrypt raw bytes with secretbox, return as base64
+        const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+        const encrypted = sodium.crypto_secretbox_easy(data, nonce, this.secretKey);
+        const bundle = new Uint8Array(nonce.length + encrypted.length);
+        bundle.set(nonce);
+        bundle.set(encrypted, nonce.length);
+        return encodeBase64(bundle);
+    }
+
+    async decryptBinary(encrypted: string): Promise<Uint8Array | null> {
+        try {
+            const bundle = decodeBase64(encrypted);
+            const nonceLength = sodium.crypto_secretbox_NONCEBYTES;
+            const nonce = bundle.slice(0, nonceLength);
+            const ciphertext = bundle.slice(nonceLength);
+            const decrypted = sodium.crypto_secretbox_open_easy(ciphertext, nonce, this.secretKey);
+            return decrypted ? new Uint8Array(decrypted) : null;
+        } catch {
+            return null;
+        }
     }
 }
 
@@ -78,7 +107,7 @@ export class BoxEncryption implements Encryptor, Decryptor {
     }
 }
 
-export class AES256Encryption implements Encryptor, Decryptor {
+export class AES256Encryption implements Encryptor, Decryptor, BinaryEncryptor {
     private readonly secretKey: Uint8Array;
     private readonly secretKeyB64: string;
 
@@ -122,5 +151,13 @@ export class AES256Encryption implements Encryptor, Decryptor {
             }
         }
         return results;
+    }
+
+    async encryptBinary(data: Uint8Array): Promise<string> {
+        return encryptBinaryAESGCM(data, this.secretKeyB64);
+    }
+
+    async decryptBinary(encrypted: string): Promise<Uint8Array | null> {
+        return decryptBinaryAESGCM(encrypted, this.secretKeyB64);
     }
 }

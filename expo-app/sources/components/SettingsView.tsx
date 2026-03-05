@@ -36,7 +36,6 @@ export const SettingsView = React.memo(function SettingsView() {
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
     const isPro = __DEV__ || useEntitlement('pro');
-    const experiments = useSetting('experiments');
     const isCustomServer = isUsingCustomServer();
     const allMachines = useAllMachines();
     const profile = useProfile();
@@ -328,14 +327,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     icon={<Ionicons name="person-outline" size={29} color="#AF52DE" />}
                     onPress={() => router.push('/settings/profiles')}
                 />
-                {experiments && (
-                    <Item
-                        title={t('settings.usage')}
-                        subtitle={t('settings.usageSubtitle')}
-                        icon={<Ionicons name="analytics-outline" size={29} color="#007AFF" />}
-                        onPress={() => router.push('/settings/usage')}
-                    />
-                )}
+                <Item
+                    title={t('settings.usage')}
+                    subtitle={t('settings.usageSubtitle')}
+                    icon={<Ionicons name="analytics-outline" size={29} color="#007AFF" />}
+                    onPress={() => router.push('/settings/usage')}
+                />
             </ItemGroup>
 
             {/* Developer */}

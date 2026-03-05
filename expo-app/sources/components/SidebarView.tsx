@@ -187,9 +187,8 @@ export const SidebarView = React.memo(() => {
     // Uses same formula as SidebarNavigator.tsx:18 for consistency
     const { width: windowWidth } = useWindowDimensions();
     const sidebarWidth = Math.min(Math.max(Math.floor(windowWidth * 0.3), 250), 360);
-    // With experiments: 4 icons (148px total), threshold 408px > max 360px → always left-justify
-    // Without experiments: 3 icons (108px total), threshold 328px → left-justify below ~340px
-    const shouldLeftJustify = settings.experiments || sidebarWidth < 340;
+    // 4 icons (148px total), threshold 408px > max 360px → always left-justify
+    const shouldLeftJustify = true;
 
     const handleNewSession = React.useCallback(() => {
         router.push('/new');
@@ -237,19 +236,17 @@ export const SidebarView = React.memo(() => {
 
                     {/* Navigation icons */}
                     <View style={styles.rightContainer}>
-                        {settings.experiments && (
-                            <Pressable
-                                onPress={() => router.push('/(app)/zen')}
-                                hitSlop={15}
-                            >
-                                <Image
-                                    source={require('@/assets/images/brutalist/Brutalism 3.png')}
-                                    contentFit="contain"
-                                    style={[{ width: 32, height: 32 }]}
-                                    tintColor={theme.colors.header.tint}
-                                />
-                            </Pressable>
-                        )}
+                        <Pressable
+                            onPress={() => router.push('/(app)/zen')}
+                            hitSlop={15}
+                        >
+                            <Image
+                                source={require('@/assets/images/brutalist/Brutalism 3.png')}
+                                contentFit="contain"
+                                style={[{ width: 32, height: 32 }]}
+                                tintColor={theme.colors.header.tint}
+                            />
+                        </Pressable>
                         <Pressable
                             onPress={() => router.push('/(app)/inbox')}
                             hitSlop={15}

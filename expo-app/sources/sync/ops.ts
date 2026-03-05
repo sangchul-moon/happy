@@ -6,6 +6,7 @@
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import type { MachineMetadata } from './storageTypes';
+import { chunkedDownload, chunkedUpload } from './chunkedTransfer';
 
 // Strict type definitions for all operations
 
@@ -113,6 +114,37 @@ interface SessionRipgrepResponse {
     exitCode?: number;
     stdout?: string;
     stderr?: string;
+    error?: string;
+}
+
+// Rename operation types
+interface SessionRenameRequest {
+    oldPath: string;
+    newPath: string;
+}
+
+interface SessionRenameResponse {
+    success: boolean;
+    error?: string;
+}
+
+// Delete operation types
+interface SessionDeleteFileRequest {
+    path: string;
+}
+
+interface SessionDeleteFileResponse {
+    success: boolean;
+    error?: string;
+}
+
+// Create directory operation types
+interface SessionCreateDirectoryRequest {
+    path: string;
+}
+
+interface SessionCreateDirectoryResponse {
+    success: boolean;
     error?: string;
 }
 
@@ -492,6 +524,175 @@ export async function sessionKill(sessionId: string): Promise<SessionKillRespons
 }
 
 /**
+ * Rename a file or directory in the session
+ */
+export async function sessionRename(
+    sessionId: string,
+    oldPath: string,
+    newPath: string
+): Promise<SessionRenameResponse> {
+    try {
+        const request: SessionRenameRequest = { oldPath, newPath };
+        const response = await apiSocket.sessionRPC<SessionRenameResponse, SessionRenameRequest>(
+            sessionId,
+            'rename',
+            request
+        );
+        return response;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
+ * Delete a file or directory in the session
+ */
+export async function sessionDeleteFile(
+    sessionId: string,
+    path: string
+): Promise<SessionDeleteFileResponse> {
+    try {
+        const request: SessionDeleteFileRequest = { path };
+        const response = await apiSocket.sessionRPC<SessionDeleteFileResponse, SessionDeleteFileRequest>(
+            sessionId,
+            'delete',
+            request
+        );
+        return response;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
+ * Create a directory in the session
+ */
+export async function sessionCreateDirectory(
+    sessionId: string,
+    path: string
+): Promise<SessionCreateDirectoryResponse> {
+    try {
+        const request: SessionCreateDirectoryRequest = { path };
+        const response = await apiSocket.sessionRPC<SessionCreateDirectoryResponse, SessionCreateDirectoryRequest>(
+            sessionId,
+            'createDirectory',
+            request
+        );
+        return response;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
+ * Download a file from the session as raw bytes
+ * Smart routing: files < 512KB use legacy readFile, larger files use chunked transfer
+ * @param sessionId - The session ID
+ * @param path - Remote file path
+ * @param fileSize - Known file size in bytes (from directory listing). If unknown, uses chunked path.
+ * @param onProgress - Progress callback (0-100)
+ * @param signal - AbortSignal for cancellation
+ * @returns Raw file bytes as Uint8Array
+ */
+export async function sessionDownloadFile(
+    sessionId: string,
+    path: string,
+    fileSize?: number,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
+): Promise<Uint8Array> {
+    const CHUNKED_THRESHOLD = 512 * 1024; // 512KB
+
+    // Legacy download helper (base64 via readFile RPC)
+    const legacyDownload = async (): Promise<Uint8Array> => {
+        onProgress?.(0);
+        const result = await sessionReadFile(sessionId, path);
+        if (!result.success || !result.content) {
+            throw new Error(result.error || 'Failed to read file');
+        }
+        const binaryString = atob(result.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        onProgress?.(100);
+        return bytes;
+    };
+
+    // Use legacy path for small or unknown-size files
+    if (fileSize === undefined || fileSize < CHUNKED_THRESHOLD) {
+        return legacyDownload();
+    }
+
+    // Use chunked transfer for large files, fallback to legacy on failure
+    try {
+        return await chunkedDownload({
+            sessionId,
+            remotePath: path,
+            onProgress,
+            signal,
+        });
+    } catch (error) {
+        // Don't fallback on user-initiated abort
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            throw error;
+        }
+        // Fallback to legacy download (CLI might not support chunked transfer yet)
+        return legacyDownload();
+    }
+}
+
+/**
+ * Upload a file to the session using chunked transfer for large files
+ * @param sessionId - The session ID
+ * @param path - Remote file path
+ * @param data - File content as Uint8Array
+ * @param onProgress - Progress callback (0-100)
+ * @param signal - AbortSignal for cancellation
+ */
+export async function sessionUploadFileChunked(
+    sessionId: string,
+    path: string,
+    data: Uint8Array,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
+): Promise<void> {
+    const CHUNKED_THRESHOLD = 512 * 1024;
+
+    if (data.length < CHUNKED_THRESHOLD) {
+        // Use legacy path for small files
+        onProgress?.(0);
+        const base64 = btoa(String.fromCharCode(...data));
+        const fileName = path.split('/').pop() || 'file';
+        const subPath = path.substring(0, path.lastIndexOf('/')) || undefined;
+        await apiSocket.sessionRPC(sessionId, 'uploadFile', {
+            fileName,
+            content: base64,
+            subPath,
+        });
+        onProgress?.(100);
+        return;
+    }
+
+    return chunkedUpload({
+        sessionId,
+        remotePath: path,
+        data,
+        onProgress,
+        signal,
+    });
+}
+
+/**
  * Permanently delete a session from the server
  * This will remove the session and all its associated data (messages, usage reports, access keys)
  * The session should be inactive/archived before deletion
@@ -531,5 +732,8 @@ export type {
     SessionGetDirectoryTreeResponse,
     TreeNode,
     SessionRipgrepResponse,
-    SessionKillResponse
+    SessionKillResponse,
+    SessionRenameResponse,
+    SessionDeleteFileResponse,
+    SessionCreateDirectoryResponse
 };

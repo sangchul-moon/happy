@@ -4,13 +4,17 @@ import { Drawer } from 'expo-router/drawer';
 import { useIsTablet } from '@/utils/responsive';
 import { SidebarView } from './SidebarView';
 import { Slot } from 'expo-router';
-import { useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
+import { SplitViewContainer } from './SplitViewContainer';
+import { useSplitViewActive } from '@/hooks/useSplitView';
+import { StyleSheet } from 'react-native-unistyles';
 
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
     const showPermanentDrawer = auth.isAuthenticated && isTablet;
     const { width: windowWidth } = useWindowDimensions();
+    const splitViewActive = useSplitViewActive();
 
     // Calculate drawer width only when needed
     const drawerWidth = React.useMemo(() => {
@@ -32,7 +36,7 @@ export const SidebarNavigator = React.memo(() => {
                 },
             };
         }
-        
+
         // When drawer is permanent
         return {
             lazy: false,
@@ -58,9 +62,31 @@ export const SidebarNavigator = React.memo(() => {
     );
 
     return (
-        <Drawer
-            screenOptions={drawerNavigationOptions}
-            drawerContent={showPermanentDrawer ? drawerContent : undefined}
-        />
+        <View style={styles.container}>
+            <Drawer
+                screenOptions={drawerNavigationOptions}
+                drawerContent={showPermanentDrawer ? drawerContent : undefined}
+            />
+
+            {/* Split view overlay - covers main content area when active */}
+            {splitViewActive && showPermanentDrawer && (
+                <View style={[styles.splitViewOverlay, { left: drawerWidth }]}>
+                    <SplitViewContainer />
+                </View>
+            )}
+        </View>
     )
 });
+
+const styles = StyleSheet.create((theme) => ({
+    container: {
+        flex: 1,
+    },
+    splitViewOverlay: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: theme.colors.surface,
+    },
+}));

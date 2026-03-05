@@ -65,7 +65,8 @@ class ApiSocket {
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            reconnectionAttempts: Infinity
+            reconnectionAttempts: Infinity,
+            ackTimeout: 120000
         });
 
         this.setupEventHandlers();
@@ -116,16 +117,56 @@ class ApiSocket {
         if (!sessionEncryption) {
             throw new Error(`Session encryption not found for ${sessionId}`);
         }
-        
+
         const result = await this.socket!.emitWithAck('rpc-call', {
             method: `${sessionId}:${method}`,
             params: await sessionEncryption.encryptRaw(params)
         });
-        
-        if (result.ok) {
-            return await sessionEncryption.decryptRaw(result.result) as R;
+
+        if (!result) {
+            throw new Error('RPC call returned empty response');
         }
-        throw new Error('RPC call failed');
+        if (result.ok) {
+            const decrypted = await sessionEncryption.decryptRaw(result.result);
+            if (decrypted === null || decrypted === undefined) {
+                throw new Error(`Failed to decrypt RPC response for method: ${method}`);
+            }
+            return decrypted as R;
+        }
+        throw new Error(result.error || 'RPC call failed');
+    }
+
+    /**
+     * RPC call that returns binary data (no JSON parsing)
+     * Used for chunked file transfer where response is raw encrypted bytes
+     */
+    async sessionRPCBinary(sessionId: string, method: string, params: any): Promise<Uint8Array> {
+        const sessionEncryption = this.encryption!.getSessionEncryption(sessionId);
+        if (!sessionEncryption) {
+            throw new Error(`Session encryption not found for ${sessionId}`);
+        }
+
+        const result = await this.socket!.emitWithAck('rpc-call', {
+            method: `${sessionId}:${method}`,
+            params: await sessionEncryption.encryptRaw(params)
+        });
+
+        if (!result) {
+            throw new Error('RPC call returned empty response');
+        }
+        if (result.ok) {
+            const decrypted = await sessionEncryption.decryptBinary(result.result);
+            if (!decrypted) {
+                // Fallback: try JSON decryption in case the response is an error object
+                const jsonResult = await sessionEncryption.decryptRaw(result.result);
+                if (jsonResult && jsonResult.error) {
+                    throw new Error(jsonResult.error);
+                }
+                throw new Error(`Failed to decrypt binary RPC response for method: ${method}`);
+            }
+            return decrypted;
+        }
+        throw new Error(result.error || 'RPC call failed');
     }
 
     /**
@@ -142,10 +183,17 @@ class ApiSocket {
             params: await machineEncryption.encryptRaw(params)
         });
 
-        if (result.ok) {
-            return await machineEncryption.decryptRaw(result.result) as R;
+        if (!result) {
+            throw new Error('RPC call returned empty response');
         }
-        throw new Error('RPC call failed');
+        if (result.ok) {
+            const decrypted = await machineEncryption.decryptRaw(result.result);
+            if (decrypted === null || decrypted === undefined) {
+                throw new Error('Failed to decrypt RPC response');
+            }
+            return decrypted as R;
+        }
+        throw new Error(result.error || 'RPC call failed');
     }
 
     send(event: string, data: any) {

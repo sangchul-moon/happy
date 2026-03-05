@@ -177,6 +177,106 @@ export function decryptWithDataKey(bundle: Uint8Array, dataKey: Uint8Array): any
   }
 }
 
+/**
+ * Encrypt raw binary data using AES-256-GCM (no JSON serialization)
+ * Uses version byte 1 to distinguish from JSON-based encryption (version 0)
+ * @param dataKey - The 32-byte AES-256 key
+ * @param data - The raw binary data to encrypt
+ * @returns The encrypted data bundle (version + nonce + ciphertext + auth tag)
+ */
+export function encryptBinaryWithDataKey(dataKey: Uint8Array, data: Uint8Array): Uint8Array {
+  const nonce = getRandomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', dataKey, nonce);
+
+  const encrypted = Buffer.concat([
+    cipher.update(data),
+    cipher.final()
+  ]);
+
+  const authTag = cipher.getAuthTag();
+
+  // Bundle: version(1=binary) + nonce(12) + ciphertext + auth tag(16)
+  const bundle = new Uint8Array(1 + 12 + encrypted.length + 16);
+  bundle.set([1], 0); // Version 1 = binary
+  bundle.set(nonce, 1);
+  bundle.set(new Uint8Array(encrypted), 13);
+  bundle.set(new Uint8Array(authTag), 13 + encrypted.length);
+
+  return bundle;
+}
+
+/**
+ * Decrypt raw binary data encrypted with AES-256-GCM (no JSON parsing)
+ * @param bundle - The encrypted data bundle (must have version byte 1)
+ * @param dataKey - The 32-byte AES-256 key
+ * @returns The decrypted binary data or null if decryption fails
+ */
+export function decryptBinaryWithDataKey(bundle: Uint8Array, dataKey: Uint8Array): Uint8Array | null {
+  if (bundle.length < 1 + 12 + 16) {
+    return null;
+  }
+  if (bundle[0] !== 1) { // Only version 1 (binary)
+    return null;
+  }
+
+  const nonce = bundle.slice(1, 13);
+  const authTag = bundle.slice(bundle.length - 16);
+  const ciphertext = bundle.slice(13, bundle.length - 16);
+
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', dataKey, nonce);
+    decipher.setAuthTag(authTag);
+
+    const decrypted = Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final()
+    ]);
+
+    return new Uint8Array(decrypted);
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Encrypt raw binary data using the appropriate encryption variant
+ * @param key - The encryption key
+ * @param variant - The encryption variant
+ * @param data - The raw binary data
+ * @returns The encrypted binary bundle
+ */
+export function encryptBinary(key: Uint8Array, variant: 'legacy' | 'dataKey', data: Uint8Array): Uint8Array {
+  if (variant === 'legacy') {
+    // Legacy: use secretbox directly on raw bytes (no JSON)
+    const nonce = getRandomBytes(tweetnacl.secretbox.nonceLength);
+    const encrypted = tweetnacl.secretbox(data, nonce, key);
+    const result = new Uint8Array(nonce.length + encrypted.length);
+    result.set(nonce);
+    result.set(encrypted, nonce.length);
+    return result;
+  } else {
+    return encryptBinaryWithDataKey(key, data);
+  }
+}
+
+/**
+ * Decrypt raw binary data using the appropriate encryption variant
+ * @param key - The encryption key
+ * @param variant - The encryption variant
+ * @param data - The encrypted binary bundle
+ * @returns The decrypted binary data or null
+ */
+export function decryptBinary(key: Uint8Array, variant: 'legacy' | 'dataKey', data: Uint8Array): Uint8Array | null {
+  if (variant === 'legacy') {
+    const nonce = data.slice(0, tweetnacl.secretbox.nonceLength);
+    const encrypted = data.slice(tweetnacl.secretbox.nonceLength);
+    const decrypted = tweetnacl.secretbox.open(encrypted, nonce, key);
+    return decrypted ? new Uint8Array(decrypted) : null;
+  } else {
+    return decryptBinaryWithDataKey(data, key);
+  }
+}
+
 export function encrypt(key: Uint8Array, variant: 'legacy' | 'dataKey', data: any): Uint8Array {
   if (variant === 'legacy') {
     return encryptLegacy(data, key);

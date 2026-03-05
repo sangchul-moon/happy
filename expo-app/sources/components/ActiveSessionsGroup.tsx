@@ -10,7 +10,7 @@ import { Avatar } from './Avatar';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
 import { useAllMachines, useSetting } from '@/sync/storage';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { machineSpawnNewSession, sessionKill } from '@/sync/ops';
 import { storage } from '@/sync/storage';
@@ -22,6 +22,7 @@ import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { useIsTablet } from '@/utils/responsive';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
+import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -191,6 +192,18 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         textAlign: 'center',
         ...Typography.default('semiBold'),
     },
+    splitButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.surfaceHighest,
+        marginLeft: 8,
+    },
+    splitButtonActive: {
+        backgroundColor: theme.colors.radio.active,
+    },
 }));
 
 interface ActiveSessionsGroupProps {
@@ -337,12 +350,19 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessi
 // Compact session row component with status line
 const CompactSessionRow = React.memo(({ session, selected, showBorder }: { session: Session; selected?: boolean; showBorder?: boolean }) => {
     const styles = stylesheet;
+    const { theme } = useUnistyles();
     const sessionStatus = useSessionStatus(session);
     const sessionName = getSessionName(session);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
+
+    // Split view state
+    const addPanel = useSplitViewStore(state => state.addPanel);
+    const hasPanel = useSplitViewStore(state => state.hasPanel);
+    const isInSplitView = hasPanel(session.id);
+    const showSplitButton = isSplitViewSupported() && isTablet;
 
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const result = await sessionKill(session.id);
@@ -370,6 +390,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const avatarId = React.useMemo(() => {
         return getSessionAvatarId(session);
     }, [session]);
+
+    const handleSplitPress = React.useCallback((e: any) => {
+        e.stopPropagation();
+        addPanel(session.id);
+    }, [addPanel, session.id]);
 
     const itemContent = (
         <Pressable
@@ -436,7 +461,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         {/* No longer showing git status per item - it's in the header */}
 
                         {/* Task status indicator */}
-                        {session.todos && session.todos.length > 0 && (() => {
+                        {Array.isArray(session.todos) && session.todos.length > 0 && (() => {
                             const totalTasks = session.todos.length;
                             const completedTasks = session.todos.filter(t => t.status === 'completed').length;
 
@@ -462,6 +487,24 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                     </View>
                 </View>
             </View>
+
+            {/* Split view button - web only */}
+            {showSplitButton && (
+                <Pressable
+                    onPress={handleSplitPress}
+                    style={[
+                        styles.splitButton,
+                        isInSplitView && styles.splitButtonActive
+                    ]}
+                    hitSlop={4}
+                >
+                    <Ionicons
+                        name="grid-outline"
+                        size={16}
+                        color={isInSplitView ? '#fff' : theme.colors.textSecondary}
+                    />
+                </Pressable>
+            )}
         </Pressable>
     );
 

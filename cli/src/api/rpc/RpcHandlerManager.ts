@@ -10,11 +10,13 @@ import {
     RpcHandlerMap,
     RpcRequest,
     RpcHandlerConfig,
+    RawRpcHandler,
 } from './types';
 import { Socket } from 'socket.io-client';
 
 export class RpcHandlerManager {
     private handlers: RpcHandlerMap = new Map();
+    private rawHandlers: Map<string, RawRpcHandler> = new Map();
     private readonly scopePrefix: string;
     private readonly encryptionKey: Uint8Array;
     private readonly encryptionVariant: 'legacy' | 'dataKey';
@@ -48,6 +50,39 @@ export class RpcHandlerManager {
     }
 
     /**
+     * Register a raw RPC handler that manages its own encryption
+     * The handler receives decrypted params but returns a pre-encrypted base64 string
+     * Used for binary data transfer where JSON serialization is not desired
+     * @param method - The method name (without prefix)
+     * @param handler - The raw handler function
+     */
+    registerRawHandler<TRequest = any>(
+        method: string,
+        handler: RawRpcHandler<TRequest>
+    ): void {
+        const prefixedMethod = this.getPrefixedMethod(method);
+        this.rawHandlers.set(prefixedMethod, handler);
+
+        if (this.socket) {
+            this.socket.emit('rpc-register', { method: prefixedMethod });
+        }
+    }
+
+    /**
+     * Get the encryption key for external use (e.g., chunked transfer handlers)
+     */
+    getEncryptionKey(): Uint8Array {
+        return this.encryptionKey;
+    }
+
+    /**
+     * Get the encryption variant for external use
+     */
+    getEncryptionVariant(): 'legacy' | 'dataKey' {
+        return this.encryptionVariant;
+    }
+
+    /**
      * Handle an incoming RPC request
      * @param request - The RPC request data
      * @param callback - The response callback
@@ -56,6 +91,17 @@ export class RpcHandlerManager {
         request: RpcRequest,
     ): Promise<any> {
         try {
+            // Check for raw handler first
+            const rawHandler = this.rawHandlers.get(request.method);
+            if (rawHandler) {
+                // Decrypt params, but let the handler return pre-encrypted response
+                const decryptedParams = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(request.params));
+                this.logger('[RPC] Calling raw handler', { method: request.method });
+                const result = await rawHandler(decryptedParams);
+                this.logger('[RPC] Raw handler returned', { method: request.method, responseLength: result.length });
+                return result;
+            }
+
             const handler = this.handlers.get(request.method);
 
             if (!handler) {
@@ -91,6 +137,9 @@ export class RpcHandlerManager {
         for (const [prefixedMethod] of this.handlers) {
             socket.emit('rpc-register', { method: prefixedMethod });
         }
+        for (const [prefixedMethod] of this.rawHandlers) {
+            socket.emit('rpc-register', { method: prefixedMethod });
+        }
     }
 
     onSocketDisconnect(): void {
@@ -101,7 +150,7 @@ export class RpcHandlerManager {
      * Get the number of registered handlers
      */
     getHandlerCount(): number {
-        return this.handlers.size;
+        return this.handlers.size + this.rawHandlers.size;
     }
 
     /**
@@ -110,7 +159,7 @@ export class RpcHandlerManager {
      */
     hasHandler(method: string): boolean {
         const prefixedMethod = this.getPrefixedMethod(method);
-        return this.handlers.has(prefixedMethod);
+        return this.handlers.has(prefixedMethod) || this.rawHandlers.has(prefixedMethod);
     }
 
     /**
@@ -118,6 +167,7 @@ export class RpcHandlerManager {
      */
     clearHandlers(): void {
         this.handlers.clear();
+        this.rawHandlers.clear();
         this.logger('Cleared all RPC handlers');
     }
 

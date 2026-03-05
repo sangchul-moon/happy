@@ -227,7 +227,8 @@ export class ApiMachineClient {
             path: '/v1/updates',
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000
+            reconnectionDelayMax: 5000,
+            ackTimeout: 120000
         });
 
         this.socket.on('connect', () => {

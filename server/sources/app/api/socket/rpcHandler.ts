@@ -80,7 +80,7 @@ export function rpcHandler(userId: string, socket: Socket, rpcListeners: Map<str
 
             const targetSocket = rpcListeners.get(method);
             if (!targetSocket || !targetSocket.connected) {
-                // log({ module: 'websocket-rpc' }, `RPC call failed: Method ${method} not available (disconnected or not registered)`);
+                log({ module: 'websocket-rpc' }, `RPC call failed: Method ${method} not available (disconnected or not registered)`);
                 if (callback) {
                     callback({
                         ok: false,
@@ -108,13 +108,13 @@ export function rpcHandler(userId: string, socket: Socket, rpcListeners: Map<str
 
             // Forward the RPC request to the target socket using emitWithAck
             try {
-                const response = await targetSocket.timeout(30000).emitWithAck('rpc-request', {
+                const response = await targetSocket.timeout(120000).emitWithAck('rpc-request', {
                     method,
                     params
                 });
 
                 const duration = Date.now() - startTime;
-                // log({ module: 'websocket-rpc' }, `RPC call succeeded: ${method} (${duration}ms)`);
+                log({ module: 'websocket-rpc' }, `RPC call succeeded: ${method} (${duration}ms), response type: ${typeof response}, length: ${typeof response === 'string' ? response.length : 'N/A'}`);
 
                 // Forward the response back to the caller via callback
                 if (callback) {
@@ -127,7 +127,7 @@ export function rpcHandler(userId: string, socket: Socket, rpcListeners: Map<str
             } catch (error) {
                 const duration = Date.now() - startTime;
                 const errorMsg = error instanceof Error ? error.message : 'RPC call failed';
-                // log({ module: 'websocket-rpc' }, `RPC call failed: ${method} - ${errorMsg} (${duration}ms)`);
+                log({ module: 'websocket-rpc' }, `RPC call failed: ${method} - ${errorMsg} (${duration}ms)`);
 
                 // Timeout or error occurred
                 if (callback) {

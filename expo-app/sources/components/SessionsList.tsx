@@ -29,6 +29,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { sessionDelete } from '@/sync/ops';
 import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
+import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -192,6 +193,18 @@ const stylesheet = StyleSheet.create((theme) => ({
         textAlign: 'center',
         ...Typography.default('semiBold'),
     },
+    splitButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.surfaceHighest,
+        marginLeft: 8,
+    },
+    splitButtonActive: {
+        backgroundColor: theme.colors.radio.active,
+    },
 }));
 
 export function SessionsList() {
@@ -204,7 +217,6 @@ export function SessionsList() {
     const compactSessionView = useSetting('compactSessionView');
     const router = useRouter();
     const selectable = isTablet;
-    const experiments = useSetting('experiments');
     const dataWithSelected = selectable ? React.useMemo(() => {
         return data?.map(item => ({
             ...item,
@@ -331,6 +343,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     isSingle?: boolean;
 }) => {
     const styles = stylesheet;
+    const { theme } = useUnistyles();
     const sessionStatus = useSessionStatus(session);
     const sessionName = getSessionName(session);
     const sessionSubtitle = getSessionSubtitle(session);
@@ -338,6 +351,12 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
+
+    // Split view state
+    const addPanel = useSplitViewStore(state => state.addPanel);
+    const hasPanel = useSplitViewStore(state => state.hasPanel);
+    const isInSplitView = hasPanel(session.id);
+    const showSplitButton = isSplitViewSupported() && isTablet;
 
     const [deletingSession, performDelete] = useHappyAction(async () => {
         const result = await sessionDelete(session.id);
@@ -365,6 +384,11 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const avatarId = React.useMemo(() => {
         return getSessionAvatarId(session);
     }, [session]);
+
+    const handleSplitPress = React.useCallback((e: any) => {
+        e.stopPropagation();
+        addPanel(session.id);
+    }, [addPanel, session.id]);
 
     const itemContent = (
         <Pressable
@@ -427,6 +451,24 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                     </Text>
                 </View>
             </View>
+
+            {/* Split view button - web only */}
+            {showSplitButton && (
+                <Pressable
+                    onPress={handleSplitPress}
+                    style={[
+                        styles.splitButton,
+                        isInSplitView && styles.splitButtonActive
+                    ]}
+                    hitSlop={4}
+                >
+                    <Ionicons
+                        name="grid-outline"
+                        size={16}
+                        color={isInSplitView ? '#fff' : theme.colors.textSecondary}
+                    />
+                </Pressable>
+            )}
         </Pressable>
     );
 

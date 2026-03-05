@@ -1,5 +1,5 @@
 import { deriveKey } from "@/encryption/deriveKey";
-import { AES256Encryption, BoxEncryption, SecretBoxEncryption, Encryptor, Decryptor } from "./encryptor";
+import { AES256Encryption, BoxEncryption, SecretBoxEncryption, Encryptor, Decryptor, BinaryEncryptor } from "./encryptor";
 import { encodeHex } from "@/encryption/hex";
 import { EncryptionCache } from "./encryptionCache";
 import { SessionEncryption } from "./sessionEncryption";
@@ -48,7 +48,7 @@ export class Encryption {
     // Core encryption opening
     //
 
-    async openEncryption(dataEncryptionKey: Uint8Array | null): Promise<Encryptor & Decryptor> {
+    async openEncryption(dataEncryptionKey: Uint8Array | null): Promise<Encryptor & Decryptor & BinaryEncryptor> {
         if (!dataEncryptionKey) {
             return this.legacyEncryption;
         }
@@ -151,6 +151,7 @@ export class Encryption {
             const decrypted = await this.legacyEncryption.decrypt([encryptedData]);
             return decrypted[0] || null;
         } catch (error) {
+            console.error('[encryption] Failed to decrypt raw data:', error);
             return null;
         }
     }

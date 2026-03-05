@@ -1,7 +1,7 @@
 {
   "name": "happy",
   "main": "index.ts",
-  "version": "1.0.0",
+  "version": "0.2.1",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -28,9 +28,13 @@
     "start:production": "cross-env APP_ENV=production expo start",
     "// ==== macOS Desktop (Tauri) Variants ====": "",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
-    "tauri:build:dev": "tauri build --config src-tauri/tauri.dev.conf.json",
-    "tauri:build:preview": "tauri build --config src-tauri/tauri.preview.conf.json",
-    "tauri:build:production": "tauri build"
+    "tauri:build:dev": "tauri build --config src-tauri/tauri.dev.conf.json && yarn tauri:sign",
+    "tauri:build:preview": "tauri build --config src-tauri/tauri.preview.conf.json && yarn tauri:sign",
+    "tauri:build:production": "tauri build && yarn tauri:sign",
+    "tauri:sign": "bash scripts/tauri-sign.sh",
+    "bump:major": "bash scripts/bump-version.sh major",
+    "bump:minor": "bash scripts/bump-version.sh minor",
+    "bump:patch": "bash scripts/bump-version.sh patch"
   },
   "jest": {
     "preset": "jest-expo"
@@ -58,6 +62,7 @@
     "@revenuecat/purchases-js": "^1.11.1",
     "@shopify/flash-list": "2.0.2",
     "@shopify/react-native-skia": "2.2.12",
+    "@tauri-apps/api": "2.8.0",
     "@tauri-apps/cli": "^2.8.1",
     "@tauri-apps/plugin-http": "^2.5.2",
     "@types/libsodium-wrappers": "^0.7.14",

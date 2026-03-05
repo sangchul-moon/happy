@@ -67,6 +67,18 @@ npm run tauri:build:production
 - Tauri merges partial configs using [JSON Merge Patch (RFC 7396)](https://datatracker.ietf.org/doc/html/rfc7396)
 - Only differences need to be specified in partial configs (DRY principle)
 
+**macOS Code Signing:**
+
+All `tauri:build:*` scripts automatically apply ad-hoc code signing after the build completes. This prevents macOS Gatekeeper from showing the _"Happy is damaged and can't be opened"_ error.
+
+- Without signing: Gatekeeper blocks the app entirely ("damaged" error)
+- With ad-hoc signing: Users see an "unidentified developer" warning, which can be bypassed via **Right-click > Open**
+
+If you still encounter the Gatekeeper warning after installing, run:
+```bash
+xattr -cr /Applications/Happy.app
+```
+
 ### Development Server
 
 ```bash

@@ -24,6 +24,7 @@ import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, getSessionAvatarId, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { isVersionSupported, MINIMUM_CLI_VERSION } from '@/utils/versionUtils';
+import { FileExplorerSheet } from '@/components/FileExplorerSheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
@@ -159,6 +160,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const deviceType = useDeviceType();
     const [message, setMessage] = React.useState('');
     const realtimeStatus = useRealtimeStatus();
+    const [showFileExplorer, setShowFileExplorer] = React.useState(false);
     const { messages, isLoaded } = useSessionMessages(sessionId);
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
 
@@ -176,7 +178,6 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const sessionStatus = useSessionStatus(session);
     const sessionUsage = useSessionUsage(sessionId);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
-    const experiments = useSetting('experiments');
 
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage);
@@ -324,7 +325,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
             isMicActive={micButtonState.isMicActive}
             onAbort={() => sessionAbort(sessionId)}
             showAbortButton={sessionStatus.state === 'thinking' || sessionStatus.state === 'waiting'}
-            onFileViewerPress={experiments ? () => router.push(`/session/${sessionId}/files`) : undefined}
+            onFileViewerPress={() => setShowFileExplorer(true)}
             // Autocomplete configuration
             autocompletePrefixes={['@', '/']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query)}
@@ -399,6 +400,13 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                     placeholder={placeholder}
                 />
             </View >
+
+            {/* File explorer bottom sheet */}
+            <FileExplorerSheet
+                visible={showFileExplorer}
+                sessionId={sessionId}
+                onClose={() => setShowFileExplorer(false)}
+            />
 
             {/* Back button for landscape phone mode when header is hidden */}
             {

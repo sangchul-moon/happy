@@ -1,13 +1,14 @@
 import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, stat, mkdir } from 'fs/promises';
+import { readFile, writeFile, readdir, stat, mkdir, rename, rm } from 'fs/promises';
 import { createHash } from 'crypto';
 import { join } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
 import { run as runDifftastic } from '@/modules/difftastic/index';
 import { RpcHandlerManager } from '../../api/rpc/RpcHandlerManager';
 import { validatePath } from './pathSecurity';
+import { registerChunkedHandlers } from './chunkedTransfer';
 
 const execAsync = promisify(exec);
 
@@ -120,6 +121,34 @@ interface UploadFileResponse {
     success: boolean;
     path?: string; // full path where file was saved
     size?: number; // file size in bytes
+    error?: string;
+}
+
+interface RenameRequest {
+    oldPath: string;
+    newPath: string;
+}
+
+interface RenameResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface DeleteRequest {
+    path: string;
+}
+
+interface DeleteResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface CreateDirectoryRequest {
+    path: string;
+}
+
+interface CreateDirectoryResponse {
+    success: boolean;
     error?: string;
 }
 
@@ -583,4 +612,82 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             };
         }
     });
+
+    // Rename file or directory handler
+    rpcHandlerManager.registerHandler<RenameRequest, RenameResponse>('rename', async (data) => {
+        logger.debug('Rename request:', data.oldPath, '->', data.newPath);
+
+        // Validate both paths are within working directory
+        const oldValidation = validatePath(data.oldPath, workingDirectory);
+        if (!oldValidation.valid) {
+            return { success: false, error: oldValidation.error };
+        }
+
+        const newValidation = validatePath(data.newPath, workingDirectory);
+        if (!newValidation.valid) {
+            return { success: false, error: newValidation.error };
+        }
+
+        try {
+            await rename(data.oldPath, data.newPath);
+            logger.debug('Rename successful:', data.oldPath, '->', data.newPath);
+            return { success: true };
+        } catch (error) {
+            logger.debug('Failed to rename:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to rename'
+            };
+        }
+    });
+
+    // Delete file or directory handler
+    rpcHandlerManager.registerHandler<DeleteRequest, DeleteResponse>('delete', async (data) => {
+        logger.debug('Delete request:', data.path);
+
+        // Validate path is within working directory
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        try {
+            // Use rm with recursive option to handle both files and directories
+            await rm(data.path, { recursive: true, force: false });
+            logger.debug('Delete successful:', data.path);
+            return { success: true };
+        } catch (error) {
+            logger.debug('Failed to delete:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to delete'
+            };
+        }
+    });
+
+    // Create directory handler
+    rpcHandlerManager.registerHandler<CreateDirectoryRequest, CreateDirectoryResponse>('createDirectory', async (data) => {
+        logger.debug('Create directory request:', data.path);
+
+        // Validate path is within working directory
+        const validation = validatePath(data.path, workingDirectory);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        try {
+            await mkdir(data.path, { recursive: true });
+            logger.debug('Directory created:', data.path);
+            return { success: true };
+        } catch (error) {
+            logger.debug('Failed to create directory:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to create directory'
+            };
+        }
+    });
+
+    // Register chunked file transfer handlers for large file operations
+    registerChunkedHandlers(rpcHandlerManager, workingDirectory);
 }

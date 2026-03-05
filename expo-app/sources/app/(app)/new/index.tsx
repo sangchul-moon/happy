@@ -286,7 +286,6 @@ function NewSessionWizard() {
     const useEnhancedSessionWizard = useSetting('useEnhancedSessionWizard');
     const lastUsedPermissionMode = useSetting('lastUsedPermissionMode');
     const lastUsedModelMode = useSetting('lastUsedModelMode');
-    const experimentsEnabled = useSetting('experiments');
     const [profiles, setProfiles] = useSettingMutable('profiles');
     const lastUsedProfile = useSetting('lastUsedProfile');
     const [favoriteDirectories, setFavoriteDirectories] = useSettingMutable('favoriteDirectories');
@@ -313,17 +312,9 @@ function NewSessionWizard() {
     const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
-            // Only allow gemini if experiments are enabled
-            if (tempSessionData.agentType === 'gemini' && !experimentsEnabled) {
-                return 'claude';
-            }
             return tempSessionData.agentType;
         }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex') {
-            return lastUsedAgent;
-        }
-        // Only allow gemini if experiments are enabled
-        if (lastUsedAgent === 'gemini' && experimentsEnabled) {
+        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
             return lastUsedAgent;
         }
         return 'claude';
@@ -333,12 +324,12 @@ function NewSessionWizard() {
     // Note: Does NOT persist immediately - persistence is handled by useEffect below
     const handleAgentClick = React.useCallback(() => {
         setAgentType(prev => {
-            // Cycle: claude -> codex -> gemini (if experiments) -> claude
+            // Cycle: claude -> codex -> gemini -> claude
             if (prev === 'claude') return 'codex';
-            if (prev === 'codex') return experimentsEnabled ? 'gemini' : 'claude';
+            if (prev === 'codex') return 'gemini';
             return 'claude';
         });
-    }, [experimentsEnabled]);
+    }, []);
 
     // Persist agent selection changes (separate from setState to avoid race condition)
     // This runs after agentType state is updated, ensuring the value is stable
@@ -470,13 +461,13 @@ function NewSessionWizard() {
             const availableAgent: 'claude' | 'codex' | 'gemini' =
                 cliAvailability.claude === true ? 'claude' :
                 cliAvailability.codex === true ? 'codex' :
-                (cliAvailability.gemini === true && experimentsEnabled) ? 'gemini' :
+                cliAvailability.gemini === true ? 'gemini' :
                 'claude'; // Fallback to claude (will fail at spawn with clear error)
 
             console.warn(`[AgentSelection] ${agentType} not available, switching to ${availableAgent}`);
             setAgentType(availableAgent);
         }
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, agentType, experimentsEnabled]);
+    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, agentType]);
 
     // Extract all ${VAR} references from profiles to query daemon environment
     const envVarRefs = React.useMemo(() => {
@@ -684,7 +675,7 @@ function NewSessionWizard() {
                 const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini';
                 // Check if this agent is available and allowed
                 const isAvailable = cliAvailability[requiredAgent] !== false;
-                const isAllowed = requiredAgent !== 'gemini' || experimentsEnabled;
+                const isAllowed = requiredAgent !== 'gemini' || true;
 
                 if (isAvailable && isAllowed) {
                     setAgentType(requiredAgent);
@@ -702,7 +693,7 @@ function NewSessionWizard() {
                 setPermissionMode(profile.defaultPermissionMode as PermissionMode);
             }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, experimentsEnabled]);
+    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, true]);
 
     // Reset permission mode to 'default' when agent type changes and current mode is invalid for new agent
     React.useEffect(() => {
@@ -1012,7 +1003,7 @@ function NewSessionWizard() {
             let actualPath = selectedPath;
 
             // Handle worktree creation
-            if (sessionType === 'worktree' && experimentsEnabled) {
+            if (sessionType === 'worktree') {
                 const worktreeResult = await createWorktree(selectedMachineId, selectedPath);
 
                 if (!worktreeResult.success) {
@@ -1093,7 +1084,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, experimentsEnabled, agentType, selectedProfileId, permissionMode, modelMode, recentMachinePaths, profileMap, router]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, true, agentType, selectedProfileId, permissionMode, modelMode, recentMachinePaths, profileMap, router]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -1113,10 +1104,10 @@ function NewSessionWizard() {
             cliStatus: includeCLI ? {
                 claude: cliAvailability.claude,
                 codex: cliAvailability.codex,
-                ...(experimentsEnabled && { gemini: cliAvailability.gemini }),
+                gemini: cliAvailability.gemini,
             } : undefined,
         };
-    }, [selectedMachine, selectedMachineId, cliAvailability, experimentsEnabled, theme]);
+    }, [selectedMachine, selectedMachineId, cliAvailability, theme]);
 
     // Persist the current wizard state so it survives remounts and screen navigation
     // Uses debouncing to avoid excessive writes
@@ -1155,17 +1146,15 @@ function NewSessionWizard() {
                 style={styles.container}
             >
                 <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                    {/* Session type selector only if experiments enabled */}
-                    {experimentsEnabled && (
-                        <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, marginBottom: 16 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                                <SessionTypeSelector
-                                    value={sessionType}
-                                    onChange={setSessionType}
-                                />
-                            </View>
+                    {/* Session type selector */}
+                    <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, marginBottom: 16 }}>
+                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
+                            <SessionTypeSelector
+                                value={sessionType}
+                                onChange={setSessionType}
+                            />
                         </View>
-                    )}
+                    </View>
 
                     {/* AgentInput with inline chips - sticky at bottom */}
                     <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: Math.max(16, safeArea.bottom) }}>
@@ -1265,16 +1254,14 @@ function NewSessionWizard() {
                                                 codex
                                             </Text>
                                         </View>
-                                        {experimentsEnabled && (
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                <Text style={{ fontSize: 11, color: cliAvailability.gemini ? theme.colors.success : theme.colors.textDestructive, ...Typography.default() }}>
-                                                    {cliAvailability.gemini ? '✓' : '✗'}
-                                                </Text>
-                                                <Text style={{ fontSize: 11, color: cliAvailability.gemini ? theme.colors.success : theme.colors.textDestructive, ...Typography.default() }}>
-                                                    gemini
-                                                </Text>
-                                            </View>
-                                        )}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                            <Text style={{ fontSize: 11, color: cliAvailability.gemini ? theme.colors.success : theme.colors.textDestructive, ...Typography.default() }}>
+                                                {cliAvailability.gemini ? '✓' : '✗'}
+                                            </Text>
+                                            <Text style={{ fontSize: 11, color: cliAvailability.gemini ? theme.colors.success : theme.colors.textDestructive, ...Typography.default() }}>
+                                                gemini
+                                            </Text>
+                                        </View>
                                     </View>
                                 </View>
                             )}
@@ -1434,7 +1421,7 @@ function NewSessionWizard() {
                                 </View>
                             )}
 
-                            {selectedMachineId && cliAvailability.gemini === false && experimentsEnabled && !isWarningDismissed('gemini') && !hiddenBanners.gemini && (
+                            {selectedMachineId && cliAvailability.gemini === false && !isWarningDismissed('gemini') && !hiddenBanners.gemini && (
                                 <View style={{
                                     backgroundColor: theme.colors.box.warning.background,
                                     borderRadius: 10,
@@ -1888,29 +1875,25 @@ function NewSessionWizard() {
                             </ItemGroup>
 
                             {/* Section 5: Advanced Options (Collapsible) */}
-                            {experimentsEnabled && (
-                                <>
-                                    <Pressable
-                                        style={styles.advancedHeader}
-                                        onPress={() => setShowAdvanced(!showAdvanced)}
-                                    >
-                                        <Text style={styles.advancedHeaderText}>Advanced Options</Text>
-                                        <Ionicons
-                                            name={showAdvanced ? "chevron-up" : "chevron-down"}
-                                            size={20}
-                                            color={theme.colors.text}
-                                        />
-                                    </Pressable>
+                            <Pressable
+                                style={styles.advancedHeader}
+                                onPress={() => setShowAdvanced(!showAdvanced)}
+                            >
+                                <Text style={styles.advancedHeaderText}>Advanced Options</Text>
+                                <Ionicons
+                                    name={showAdvanced ? "chevron-up" : "chevron-down"}
+                                    size={20}
+                                    color={theme.colors.text}
+                                />
+                            </Pressable>
 
-                                    {showAdvanced && (
-                                        <View style={{ marginBottom: 12 }}>
-                                            <SessionTypeSelector
-                                                value={sessionType}
-                                                onChange={setSessionType}
-                                            />
-                                        </View>
-                                    )}
-                                </>
+                            {showAdvanced && (
+                                <View style={{ marginBottom: 12 }}>
+                                    <SessionTypeSelector
+                                        value={sessionType}
+                                        onChange={setSessionType}
+                                    />
+                                </View>
                             )}
                         </View>
                     </View>

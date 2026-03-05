@@ -549,6 +549,33 @@ export const en = {
         file: 'File',
         fileEmpty: 'File is empty',
         noChanges: 'No changes to display',
+        // File management strings
+        newFile: 'New File',
+        newFolder: 'New Folder',
+        rename: 'Rename',
+        delete: 'Delete',
+        enterFileName: 'Enter file name',
+        enterFolderName: 'Enter folder name',
+        enterNewName: 'Enter new name',
+        create: 'Create',
+        cancel: 'Cancel',
+        confirm: 'Confirm',
+        deleteConfirmTitle: 'Delete',
+        deleteConfirmMessage: ({ name }: { name: string }) => `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+        createFileSuccess: 'File created successfully',
+        createFolderSuccess: 'Folder created successfully',
+        renameSuccess: 'Renamed successfully',
+        deleteSuccess: 'Deleted successfully',
+        operationFailed: 'Operation failed',
+        fileActions: 'File Actions',
+        folder: 'Folder',
+        emptyFolder: 'This folder is empty',
+        retry: 'Retry',
+        upload: 'Upload',
+        uploadSuccess: 'File uploaded successfully',
+        uploadFailed: 'Upload failed',
+        download: 'Download',
+        downloadSuccess: 'File downloaded successfully',
     },
 
     settingsVoice: {
@@ -911,6 +938,12 @@ export const en = {
             confirm: 'Delete',
             cancel: 'Cancel',
         },
+    },
+
+    fileAttachment: {
+        uploading: 'Uploading...',
+        uploaded: 'Uploaded',
+        failed: 'Failed',
     }
 } as const;
 

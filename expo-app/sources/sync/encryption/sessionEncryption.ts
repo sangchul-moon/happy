@@ -3,16 +3,16 @@ import { RawRecord } from '../typesRaw';
 import { ApiMessage } from '../apiTypes';
 import { DecryptedMessage, Metadata, MetadataSchema, AgentState, AgentStateSchema } from '../storageTypes';
 import { EncryptionCache } from './encryptionCache';
-import { Decryptor, Encryptor } from './encryptor';
+import { BinaryEncryptor, Decryptor, Encryptor } from './encryptor';
 
 export class SessionEncryption {
     private sessionId: string;
-    private encryptor: Encryptor & Decryptor;
+    private encryptor: Encryptor & Decryptor & BinaryEncryptor;
     private cache: EncryptionCache;
 
     constructor(
         sessionId: string,
-        encryptor: Encryptor & Decryptor,
+        encryptor: Encryptor & Decryptor & BinaryEncryptor,
         cache: EncryptionCache
     ) {
         this.sessionId = sessionId;
@@ -128,6 +128,26 @@ export class SessionEncryption {
             const encryptedData = decodeBase64(encrypted, 'base64');
             const decrypted = await this.encryptor.decrypt([encryptedData]);
             return decrypted[0] || null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Encrypt raw binary data (no JSON serialization)
+     * Used for chunked file transfer where data is raw bytes
+     */
+    async encryptBinary(data: Uint8Array): Promise<string> {
+        return this.encryptor.encryptBinary(data);
+    }
+
+    /**
+     * Decrypt raw binary data (no JSON parsing)
+     * Returns the raw bytes directly
+     */
+    async decryptBinary(encrypted: string): Promise<Uint8Array | null> {
+        try {
+            return await this.encryptor.decryptBinary(encrypted);
         } catch (error) {
             return null;
         }
