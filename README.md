@@ -71,6 +71,59 @@ On your computer, run `happy` instead of `claude` or `happy codex` instead of `c
 - **[happy-cli](https://github.com/slopus/happy/tree/main/cli)** - Command-line interface for Claude Code and Codex
 - **[happy-server](https://github.com/slopus/happy/tree/main/server)** - Backend server for encrypted sync
 
+## 🛠️ Self-Hosting
+
+Happy is fully self-hostable. The system consists of three components:
+
+```
+┌──────────┐     ┌──────────────┐     ┌──────────┐
+│  Client  │◄───►│    Server    │◄───►│   CLI    │
+│ (App/Web)│     │ PostgreSQL   │     │ (Claude  │
+│          │     │ Redis, MinIO │     │  wrapper)│
+└──────────┘     └──────────────┘     └──────────┘
+```
+
+### 1. Start the Server
+
+The server runs with Docker Compose (PostgreSQL + Redis + MinIO included):
+
+```bash
+cd server
+cp .env.example .env    # Edit with your secrets
+docker network create proxy-network
+docker-compose up -d    # Starts everything, runs migrations automatically
+```
+
+See **[server/README.md](server/README.md)** for full setup details and environment variables.
+
+### 2. Connect the CLI
+
+Build from source and point to your server:
+
+```bash
+cd cli
+yarn install && yarn build
+
+# Create .env.dev-local-server with your server URL:
+# HAPPY_SERVER_URL=http://localhost:3005
+
+yarn dev:local-server
+```
+
+See **[cli/README.md](cli/README.md)** for build scripts and daemon management.
+
+### 3. Build the App
+
+Run the web client pointed at your server:
+
+```bash
+cd expo-app
+yarn install
+EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005 yarn web
+```
+
+Or build for iOS, Android, or macOS desktop - see **[expo-app/README.md](expo-app/README.md)** for all platforms.
+
 ## 🏠 Who We Are
 
 We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy Coder was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.

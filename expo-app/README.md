@@ -65,13 +65,102 @@ On your computer, run `happy` instead of `claude` or `happy codex` instead of `c
 
 ## 📦 Project Components
 
-- **[happy-cli](https://github.com/slopus/happy-cli)** - Command-line interface for Claude Code and Codex
-- **[happy-server](https://github.com/slopus/happy-server)** - Backend server for encrypted sync
-- **happy-coder** - This mobile client (you are here)
+- **[CLI](../cli)** - Command-line interface for Claude Code and Codex
+- **[Server](../server)** - Backend server for encrypted sync
+- **App** - This mobile & web client (you are here)
 
-## 🏠 Who We Are
+## Build from Source
 
-We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy Coder was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.
+### Prerequisites
+
+- Node.js >= 20.0.0
+- Yarn
+- For iOS: Xcode & CocoaPods
+- For Android: Android Studio & Android SDK
+- For macOS desktop: Rust (via [rustup](https://rustup.rs/))
+
+### Install Dependencies
+
+```bash
+cd expo-app
+yarn install
+```
+
+### Web
+
+```bash
+yarn web           # Start web dev server on :8081
+```
+
+### iOS
+
+```bash
+yarn prebuild      # Generate native iOS project
+yarn ios:dev       # Run on iOS simulator (development variant)
+```
+
+### Android
+
+```bash
+yarn prebuild      # Generate native Android project
+yarn android:dev   # Run on Android emulator (development variant)
+```
+
+### macOS Desktop (Tauri)
+
+```bash
+yarn tauri:dev                  # Dev mode with hot reload
+yarn tauri:build:production     # Build production .dmg
+yarn tauri:sign                 # Apply ad-hoc code signing to built app
+```
+
+### Connect to a Self-Hosted Server
+
+Use the `start:local-server` script to point the app at your local server:
+
+```bash
+yarn start:local-server   # Sets EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005
+```
+
+Or set the environment variable manually for any script:
+
+```bash
+EXPO_PUBLIC_HAPPY_SERVER_URL=https://your-server.com yarn web
+```
+
+You can also change the server URL at runtime from the app's settings screen - it persists across restarts.
+
+### Build Variants
+
+Three variants can coexist on the same device:
+
+| Variant | Bundle ID | Usage |
+|---|---|---|
+| Development | `com.slopus.happy.dev` | Local dev with hot reload |
+| Preview | `com.slopus.happy.preview` | Beta testing with OTA updates |
+| Production | `com.ex3ndr.happy` | App Store / Play Store release |
+
+Switch variants via `APP_ENV`:
+
+```bash
+cross-env APP_ENV=development expo start   # or use yarn start:dev
+cross-env APP_ENV=preview expo start       # or use yarn start:preview
+cross-env APP_ENV=production expo start    # or use yarn start:production
+```
+
+### Useful Scripts
+
+| Script | Description |
+|---|---|
+| `yarn start` | Start Expo dev server |
+| `yarn web` | Run web version |
+| `yarn ios:dev` | Run on iOS simulator |
+| `yarn android:dev` | Run on Android emulator |
+| `yarn tauri:dev` | macOS desktop with hot reload |
+| `yarn tauri:build:production` | Build macOS .dmg |
+| `yarn start:local-server` | Dev server pointed at localhost:3005 |
+| `yarn typecheck` | TypeScript type checking |
+| `yarn test` | Run tests with Vitest |
 
 ## 📚 Documentation & Contributing
 

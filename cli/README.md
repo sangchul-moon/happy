@@ -133,22 +133,85 @@ GOOGLE_CLOUD_PROJECT=your-project-id happy gemini
 
 **Guide:** https://goo.gle/gemini-cli-auth-docs#workspace-gca
 
+## Build from Source
+
+If you want to build and run the CLI from the monorepo source (e.g. for self-hosting or development):
+
+### Prerequisites
+
+- Node.js >= 20.0.0
+- Yarn
+- Claude CLI installed & logged in (`claude` command available in PATH)
+- (For Gemini) Gemini CLI installed (`npm install -g @google/gemini-cli`)
+
+### Build & Run
+
+```bash
+cd cli
+yarn install
+yarn build
+yarn start        # Build and run
+```
+
+### Connect to a Self-Hosted Server
+
+Create a `.env.dev-local-server` file (or edit the existing one):
+
+```env
+HAPPY_HOME_DIR=~/.happy-dev
+HAPPY_SERVER_URL=http://localhost:3005
+HAPPY_WEBAPP_URL=http://localhost:8081
+DEBUG=1
+NODE_NO_WARNINGS=1
+```
+
+Then run:
+
+```bash
+yarn dev:local-server
+```
+
+This uses a separate data directory (`~/.happy-dev`) so it won't conflict with your production Happy installation.
+
+### Development Scripts
+
+| Script | Description |
+|---|---|
+| `yarn build` | Build the project |
+| `yarn start` | Build and run |
+| `yarn dev` | Run without building (tsx, fast iteration) |
+| `yarn dev:local-server` | Run connected to local server |
+| `yarn typecheck` | TypeScript type checking |
+| `yarn test` | Build and run tests |
+
+### Daemon Management
+
+The CLI can run a background daemon for persistent connections:
+
+```bash
+# Development variant
+yarn dev:daemon:start
+yarn dev:daemon:stop
+yarn dev:daemon:status
+
+# Stable variant
+yarn stable:daemon:start
+yarn stable:daemon:stop
+yarn stable:daemon:status
+```
+
+### Create a Global Command
+
+To create a `happy-dev` command that you can run from anywhere:
+
+```bash
+yarn link:dev      # Creates global 'happy-dev' command
+yarn unlink:dev    # Removes it
+```
+
 ## Contributing
 
 Interested in contributing? See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
-
-## Requirements
-
-- Node.js >= 20.0.0
-
-### For Claude
-
-- Claude CLI installed & logged in (`claude` command available in PATH)
-
-### For Gemini
-
-- Gemini CLI installed (`npm install -g @google/gemini-cli`)
-- Google account authenticated via `happy connect gemini`
 
 ## License
 
