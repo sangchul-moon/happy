@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { UserProfile, getDisplayName } from '@/sync/friendTypes';
-import { Avatar } from '@/components/Avatar';
 import { t } from '@/text';
 import { useRouter } from 'expo-router';
 
@@ -19,7 +18,6 @@ export function UserSearchResult({
 }: UserSearchResultProps) {
     const router = useRouter();
     const displayName = getDisplayName(user);
-    const avatarUrl = user.avatar?.url || user.avatar?.path;
     
     // Determine button state based on relationship status
     const getButtonContent = () => {
@@ -47,13 +45,6 @@ export function UserSearchResult({
             onPress={() => router.push(`/user/${user.id}`)}
         >
             <View style={styles.content}>
-                <Avatar
-                    id={user.id}
-                    size={48}
-                    imageUrl={avatarUrl}
-                    thumbhash={user.avatar?.thumbhash}
-                />
-                
                 <View style={styles.info}>
                     <Text style={styles.name}>{displayName}</Text>
                     <Text style={styles.username}>@{user.username}</Text>
@@ -93,7 +84,6 @@ const styles = StyleSheet.create((theme) => ({
     },
     info: {
         flex: 1,
-        marginLeft: 16,
     },
     name: {
         fontSize: 16,

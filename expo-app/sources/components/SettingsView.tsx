@@ -25,8 +25,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { getGitHubOAuthParams, disconnectGitHub } from '@/sync/apiGithub';
 import { disconnectService } from '@/sync/apiServices';
 import { useProfile } from '@/sync/storage';
-import { getDisplayName, getAvatarUrl, getBio } from '@/sync/profile';
-import { Avatar } from '@/components/Avatar';
+import { getDisplayName, getBio } from '@/sync/profile';
 import { t } from '@/text';
 
 export const SettingsView = React.memo(function SettingsView() {
@@ -40,7 +39,6 @@ export const SettingsView = React.memo(function SettingsView() {
     const allMachines = useAllMachines();
     const profile = useProfile();
     const displayName = getDisplayName(profile);
-    const avatarUrl = getAvatarUrl(profile);
     const bio = getBio(profile);
 
     const { connectTerminal, connectWithUrl, isLoading } = useConnectTerminal();
@@ -133,16 +131,8 @@ export const SettingsView = React.memo(function SettingsView() {
             <View style={{ maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
                 <View style={{ alignItems: 'center', paddingVertical: 24, backgroundColor: theme.colors.surface, marginTop: 16, borderRadius: 12, marginHorizontal: 16 }}>
                     {profile.firstName ? (
-                        // Profile view: Avatar + name + version
+                        // Profile view: name + bio
                         <>
-                            <View style={{ marginBottom: 12 }}>
-                                <Avatar
-                                    id={profile.id}
-                                    size={90}
-                                    imageUrl={avatarUrl}
-                                    thumbhash={profile.avatar?.thumbhash}
-                                />
-                            </View>
                             <Text style={{ fontSize: 20, fontWeight: '600', color: theme.colors.text, marginBottom: bio ? 4 : 8 }}>
                                 {displayName}
                             </Text>

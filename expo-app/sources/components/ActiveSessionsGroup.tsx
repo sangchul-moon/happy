@@ -5,8 +5,7 @@ import { Text } from '@/components/StyledText';
 import { useRouter } from 'expo-router';
 import { Session, Machine } from '@/sync/storageTypes';
 import { Ionicons } from '@expo/vector-icons';
-import { getSessionName, useSessionStatus, getSessionAvatarId, formatPathRelativeToHome } from '@/utils/sessionUtils';
-import { Avatar } from './Avatar';
+import { getSessionName, useSessionStatus, formatPathRelativeToHome, getSessionActivityText } from '@/utils/sessionUtils';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
 import { useAllMachines, useSetting } from '@/sync/storage';
@@ -126,11 +125,6 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         lineHeight: 16,
         ...Typography.default(),
     },
-    avatarContainer: {
-        position: 'relative',
-        width: 48,
-        height: 48,
-    },
     newSessionButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -163,6 +157,12 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     newSessionButtonTextDisabled: {
         color: theme.colors.textSecondary,
+    },
+    activityText: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginBottom: 4,
+        ...Typography.default(),
     },
     taskStatusContainer: {
         flexDirection: 'row',
@@ -353,6 +353,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const { theme } = useUnistyles();
     const sessionStatus = useSessionStatus(session);
     const sessionName = getSessionName(session);
+    const activityText = getSessionActivityText(session);
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
@@ -387,10 +388,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         );
     }, [performArchive]);
 
-    const avatarId = React.useMemo(() => {
-        return getSessionAvatarId(session);
-    }, [session]);
-
     const handleSplitPress = React.useCallback((e: any) => {
         e.stopPropagation();
         addPanel(session.id);
@@ -414,9 +411,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 }
             }}
         >
-            <View style={styles.avatarContainer}>
-                <Avatar id={avatarId} size={48} monochrome={!sessionStatus.isConnected} flavor={session.metadata?.flavor} />
-            </View>
             <View style={styles.sessionContent}>
                 {/* Title line */}
                 <View style={styles.sessionTitleRow}>
@@ -430,6 +424,13 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         {sessionName}
                     </Text>
                 </View>
+
+                {/* Activity text */}
+                {activityText && (
+                    <Text style={styles.activityText} numberOfLines={1}>
+                        {activityText}
+                    </Text>
+                )}
 
                 {/* Status line with dot */}
                 <View style={styles.statusRow}>

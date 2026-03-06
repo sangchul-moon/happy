@@ -90,18 +90,6 @@ export function getSessionName(session: Session): string {
     return t('status.unknown');
 }
 
-/**
- * Generates a deterministic avatar ID from machine ID and path.
- * This ensures the same machine + path combination always gets the same avatar.
- */
-export function getSessionAvatarId(session: Session): string {
-    if (session.metadata?.machineId && session.metadata?.path) {
-        // Combine machine ID and path for a unique, deterministic avatar
-        return `${session.metadata.machineId}:${session.metadata.path}`;
-    }
-    // Fallback to session ID if metadata is missing
-    return session.id;
-}
 
 /**
  * Formats a path relative to home directory if possible.
@@ -140,6 +128,25 @@ export function getSessionSubtitle(session: Session): string {
         return formatPathRelativeToHome(session.metadata.path, session.metadata.homeDir);
     }
     return t('status.unknown');
+}
+
+/**
+ * Returns the current activity text for a session.
+ * Priority: in_progress todo > lastMessagePreview > null
+ */
+export function getSessionActivityText(session: Session): string | null {
+    if (Array.isArray(session.todos)) {
+        const inProgressTodo = session.todos.find(t => t.status === 'in_progress');
+        if (inProgressTodo) {
+            return (inProgressTodo as any).activeForm || inProgressTodo.content;
+        }
+    }
+
+    if (session.lastMessagePreview) {
+        return session.lastMessagePreview.split('\n')[0].slice(0, 100);
+    }
+
+    return null;
 }
 
 /**

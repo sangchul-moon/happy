@@ -3,8 +3,7 @@ import { View, FlatList } from 'react-native';
 import { Text } from '@/components/StyledText';
 import { useAllSessions } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
-import { Avatar } from '@/components/Avatar';
-import { getSessionName, getSessionSubtitle, getSessionAvatarId } from '@/utils/sessionUtils';
+import { getSessionName, getSessionSubtitle } from '@/utils/sessionUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
@@ -68,7 +67,6 @@ const styles = StyleSheet.create((theme) => ({
     },
     sessionContent: {
         flex: 1,
-        marginLeft: 16,
     },
     sessionTitle: {
         fontSize: 15,
@@ -184,7 +182,6 @@ export default function SessionHistory() {
             const session = item.session;
             const sessionName = getSessionName(session);
             const sessionSubtitle = getSessionSubtitle(session);
-            const avatarId = getSessionAvatarId(session);
             
             // Determine card styling based on position within date group
             const prevItem = index > 0 ? groupedItems[index - 1] : null;
@@ -204,7 +201,6 @@ export default function SessionHistory() {
                     ]}
                     onPress={() => navigateToSession(session.id)}
                 >
-                    <Avatar id={avatarId} size={48} />
                     <View style={styles.sessionContent}>
                         <Text style={styles.sessionTitle} numberOfLines={1}>
                             {sessionName}

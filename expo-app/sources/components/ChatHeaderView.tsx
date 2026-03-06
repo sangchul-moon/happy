@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { Avatar } from '@/components/Avatar';
 import { Typography } from '@/constants/Typography';
 import { useHeaderHeight } from '@/utils/responsive';
 import { layout } from '@/components/layout';
@@ -13,8 +12,6 @@ interface ChatHeaderViewProps {
     title: string;
     subtitle?: string;
     onBackPress?: () => void;
-    onAvatarPress?: () => void;
-    avatarId?: string;
     backgroundColor?: string;
     tintColor?: string;
     isConnected?: boolean;
@@ -25,8 +22,6 @@ export const ChatHeaderView: React.FC<ChatHeaderViewProps> = ({
     title,
     subtitle,
     onBackPress,
-    onAvatarPress,
-    avatarId,
     isConnected = true,
     flavor,
 }) => {
@@ -87,20 +82,6 @@ export const ChatHeaderView: React.FC<ChatHeaderViewProps> = ({
                     )}
                 </View>
                 
-                {avatarId && onAvatarPress && (
-                    <Pressable
-                        onPress={onAvatarPress}
-                        hitSlop={15}
-                        style={styles.avatarButton}
-                    >
-                        <Avatar
-                            id={avatarId}
-                            size={32}
-                            monochrome={!isConnected}
-                            flavor={flavor}
-                        />
-                    </Pressable>
-                )}
                 </View>
             </View>
         </View>
@@ -145,12 +126,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '400',
         lineHeight: 14,
-    },
-    avatarButton: {
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: Platform.select({ ios: -8, default: -8 }),
     },
 });

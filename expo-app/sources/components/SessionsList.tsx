@@ -5,8 +5,7 @@ import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
 import { SessionListViewItem } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
-import { getSessionName, useSessionStatus, getSessionSubtitle, getSessionAvatarId } from '@/utils/sessionUtils';
-import { Avatar } from './Avatar';
+import { getSessionName, useSessionStatus, getSessionSubtitle, getSessionActivityText } from '@/utils/sessionUtils';
 import { ActiveSessionsGroup } from './ActiveSessionsGroup';
 import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -156,11 +155,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontWeight: '500',
         lineHeight: 16,
         ...Typography.default(),
-    },
-    avatarContainer: {
-        position: 'relative',
-        width: 48,
-        height: 48,
     },
     draftIconContainer: {
         position: 'absolute',
@@ -347,6 +341,8 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const sessionStatus = useSessionStatus(session);
     const sessionName = getSessionName(session);
     const sessionSubtitle = getSessionSubtitle(session);
+    const activityText = getSessionActivityText(session);
+    const subtitleText = activityText || sessionSubtitle;
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
@@ -381,10 +377,6 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
         );
     }, [performDelete]);
 
-    const avatarId = React.useMemo(() => {
-        return getSessionAvatarId(session);
-    }, [session]);
-
     const handleSplitPress = React.useCallback((e: any) => {
         e.stopPropagation();
         addPanel(session.id);
@@ -410,18 +402,15 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                 }
             }}
         >
-            <View style={styles.avatarContainer}>
-                <Avatar id={avatarId} size={48} monochrome={!sessionStatus.isConnected} flavor={session.metadata?.flavor} />
-                {session.draft && (
-                    <View style={styles.draftIconContainer}>
-                        <Ionicons
-                            name="create-outline"
-                            size={12}
-                            style={styles.draftIconOverlay}
-                        />
-                    </View>
-                )}
-            </View>
+            {session.draft && (
+                <View style={styles.draftIconContainer}>
+                    <Ionicons
+                        name="create-outline"
+                        size={12}
+                        style={styles.draftIconOverlay}
+                    />
+                </View>
+            )}
             <View style={styles.sessionContent}>
                 {/* Title line */}
                 <View style={styles.sessionTitleRow}>
@@ -433,9 +422,9 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                     </Text>
                 </View>
 
-                {/* Subtitle line */}
+                {/* Subtitle line - activity text or path */}
                 <Text style={styles.sessionSubtitle} numberOfLines={1}>
-                    {sessionSubtitle}
+                    {subtitleText}
                 </Text>
 
                 {/* Status line with dot */}

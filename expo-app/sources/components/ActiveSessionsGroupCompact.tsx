@@ -5,8 +5,7 @@ import { Text } from '@/components/StyledText';
 import { router, useRouter } from 'expo-router';
 import { Session, Machine } from '@/sync/storageTypes';
 import { Ionicons } from '@expo/vector-icons';
-import { getSessionName, useSessionStatus, getSessionAvatarId, formatPathRelativeToHome } from '@/utils/sessionUtils';
-import { Avatar } from './Avatar';
+import { getSessionName, useSessionStatus, formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
 import { useAllMachines, useSetting } from '@/sync/storage';
@@ -52,9 +51,6 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
-        marginRight: 8,
-    },
-    sectionHeaderAvatar: {
         marginRight: 8,
     },
     sectionHeaderPath: {
@@ -238,20 +234,13 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
         <View style={styles.container}>
             {sortedProjectGroups.map(([projectPath, projectGroup]) => {
 
-                // Get the avatar ID from the first session
                 const firstSession = Array.from(projectGroup.machines.values())[0]?.sessions[0];
-                const avatarId = firstSession ? getSessionAvatarId(firstSession) : undefined;
 
                 return (
                     <View key={projectPath}>
                         {/* Section header on grouped background */}
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionHeaderLeft}>
-                                {avatarId && (
-                                    <View style={styles.sectionHeaderAvatar}>
-                                        <Avatar id={avatarId} size={24} flavor={firstSession?.metadata?.flavor} />
-                                    </View>
-                                )}
                                 <Text style={styles.sectionHeaderPath}>
                                     {projectGroup.displayPath}
                                 </Text>

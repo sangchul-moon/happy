@@ -167,6 +167,7 @@ export type ReducerState = {
         contextSize: number;
         timestamp: number;
     };
+    lastAssistantText?: string;
 };
 
 export function createReducer(): ReducerState {
@@ -192,6 +193,7 @@ export type ReducerResult = {
         priority: 'high' | 'medium' | 'low';
         id: string;
     }>;
+    lastMessagePreview?: string;
     usage?: {
         inputTokens: number;
         outputTokens: number;
@@ -633,18 +635,23 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                 if (c.type === 'text' || c.type === 'thinking') {
                     let mid = allocateId();
                     const isThinking = c.type === 'thinking';
+                    const textContent = isThinking ? `*Thinking...*\n\n*${c.thinking}*` : c.text;
                     state.messages.set(mid, {
                         id: mid,
                         realID: msg.id,
                         role: 'agent',
                         createdAt: msg.createdAt,
-                        text: isThinking ? `*Thinking...*\n\n*${c.thinking}*` : c.text,
+                        text: textContent,
                         isThinking,
                         tool: null,
                         event: null,
                         meta: msg.meta,
                     });
                     changed.add(mid);
+
+                    if (!isThinking && c.text) {
+                        state.lastAssistantText = c.text;
+                    }
                 }
             }
         }
@@ -879,6 +886,10 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                     };
                     state.messages.set(mid, textMsg);
                     existingSidechain.push(textMsg);
+
+                    if (!isThinking && c.text) {
+                        state.lastAssistantText = c.text;
+                    }
                 } else if (c.type === 'tool-call') {
                     // Check if there's already a permission message for this tool
                     const existingPermissionMessageId = state.toolIdToMessageId.get(c.id);
@@ -1067,6 +1078,7 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
     return {
         messages: newMessages,
         todos: state.latestTodos?.todos,
+        lastMessagePreview: state.lastAssistantText,
         usage: state.latestUsage ? {
             inputTokens: state.latestUsage.inputTokens,
             outputTokens: state.latestUsage.outputTokens,

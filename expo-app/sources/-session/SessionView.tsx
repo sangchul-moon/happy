@@ -22,7 +22,7 @@ import { t } from '@/text';
 import { tracking, trackMessageSent } from '@/track';
 import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/utils/responsive';
-import { formatPathRelativeToHome, getSessionAvatarId, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
+import { formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { isVersionSupported, MINIMUM_CLI_VERSION } from '@/utils/versionUtils';
 import { FileExplorerSheet } from '@/components/FileExplorerSheet';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,8 +53,6 @@ export const SessionView = React.memo((props: { id: string }) => {
             return {
                 title: '',
                 subtitle: undefined,
-                avatarId: undefined,
-                onAvatarPress: undefined,
                 isConnected: false,
                 flavor: null
             };
@@ -65,8 +63,6 @@ export const SessionView = React.memo((props: { id: string }) => {
             return {
                 title: t('errors.sessionDeleted'),
                 subtitle: undefined,
-                avatarId: undefined,
-                onAvatarPress: undefined,
                 isConnected: false,
                 flavor: null
             };
@@ -77,8 +73,6 @@ export const SessionView = React.memo((props: { id: string }) => {
         return {
             title: getSessionName(session),
             subtitle: session.metadata?.path ? formatPathRelativeToHome(session.metadata.path, session.metadata?.homeDir) : undefined,
-            avatarId: getSessionAvatarId(session),
-            onAvatarPress: () => router.push(`/session/${sessionId}/info`),
             isConnected: isConnected,
             flavor: session.metadata?.flavor || null,
             tintColor: isConnected ? '#000' : '#8E8E93'
