@@ -11,7 +11,7 @@ import { Purchases, customerInfoToPurchases } from "./purchases";
 import { TodoState } from "../-zen/model/ops";
 import { Profile } from "./profile";
 import { UserProfile, RelationshipUpdatedEvent } from "./friendTypes";
-import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadPurchases, savePurchases, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadSessionPermissionModes, saveSessionPermissionModes } from "./persistence";
+import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadPurchases, savePurchases, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadSessionPermissionModes, saveSessionPermissionModes, loadSessionPreviews, saveSessionPreviews } from "./persistence";
 import type { PermissionMode } from '@/components/PermissionModeSelector';
 import type { CustomerInfo } from './revenueCat/types';
 import React from "react";
@@ -250,6 +250,7 @@ export const storage = create<StorageState>()((set, get) => {
     let profile = loadProfile();
     let sessionDrafts = loadSessionDrafts();
     let sessionPermissionModes = loadSessionPermissionModes();
+    let sessionPreviews = loadSessionPreviews();
     return {
         settings,
         settingsVersion: version,
@@ -317,11 +318,14 @@ export const storage = create<StorageState>()((set, get) => {
                 const savedDraft = savedDrafts[session.id];
                 const existingPermissionMode = state.sessions[session.id]?.permissionMode;
                 const savedPermissionMode = savedPermissionModes[session.id];
+                const existingPreview = state.sessions[session.id]?.lastMessagePreview;
+                const savedPreview = sessionPreviews[session.id];
                 mergedSessions[session.id] = {
                     ...session,
                     presence,
                     draft: existingDraft || savedDraft || session.draft || null,
-                    permissionMode: existingPermissionMode || savedPermissionMode || session.permissionMode || 'default'
+                    permissionMode: existingPermissionMode || savedPermissionMode || session.permissionMode || 'default',
+                    lastMessagePreview: existingPreview || savedPreview || session.lastMessagePreview || null,
                 };
             });
 
@@ -533,6 +537,12 @@ export const storage = create<StorageState>()((set, get) => {
                             } : session.latestUsage
                         }
                     };
+
+                    // Persist lastMessagePreview to survive app restarts
+                    if (reducerResult.lastMessagePreview !== undefined && reducerResult.lastMessagePreview) {
+                        sessionPreviews[sessionId] = reducerResult.lastMessagePreview;
+                        saveSessionPreviews(sessionPreviews);
+                    }
                 }
 
                 return {
@@ -932,7 +942,10 @@ export const storage = create<StorageState>()((set, get) => {
             const modes = loadSessionPermissionModes();
             delete modes[sessionId];
             saveSessionPermissionModes(modes);
-            
+
+            delete sessionPreviews[sessionId];
+            saveSessionPreviews(sessionPreviews);
+
             // Rebuild sessionListViewData without the deleted session
             const sessionListViewData = buildSessionListViewData(remainingSessions);
             

@@ -40,8 +40,13 @@ export function getDeviceType(): 'phone' | 'tablet' {
 // Hook to get device type (reactive to dimension changes)
 export function useDeviceType(): 'phone' | 'tablet' {
     const { width, height } = useWindowDimensions();
-    
+
     return useMemo(() => {
+        // Web/desktop: use pixel width directly (PPI-based calculation is meaningless)
+        if (Platform.OS === 'web') {
+            return width >= 768 ? 'tablet' : 'phone';
+        }
+
         const dimensions = calculateDeviceDimensions({
             widthPoints: width,
             heightPoints: height,

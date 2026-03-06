@@ -28,7 +28,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { sessionDelete } from '@/sync/ops';
 import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
-import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
+import { useSplitViewStore } from '@/hooks/useSplitView';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -108,13 +108,17 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 12,
         marginBottom: 12,
     },
-    sessionItemSelected: {
-        backgroundColor: theme.colors.surfaceSelected,
-    },
     sessionContent: {
         flex: 1,
         marginLeft: 16,
         justifyContent: 'center',
+    },
+    splitIndicator: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: theme.colors.textLink,
+        marginRight: 6,
     },
     sessionTitleRow: {
         flexDirection: 'row',
@@ -186,18 +190,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         color: '#FFFFFF',
         textAlign: 'center',
         ...Typography.default('semiBold'),
-    },
-    splitButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.surfaceHighest,
-        marginLeft: 8,
-    },
-    splitButtonActive: {
-        backgroundColor: theme.colors.radio.active,
     },
 }));
 
@@ -352,7 +344,6 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const addPanel = useSplitViewStore(state => state.addPanel);
     const hasPanel = useSplitViewStore(state => state.hasPanel);
     const isInSplitView = hasPanel(session.id);
-    const showSplitButton = isSplitViewSupported() && isTablet;
 
     const [deletingSession, performDelete] = useHappyAction(async () => {
         const result = await sessionDelete(session.id);
@@ -377,23 +368,17 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
         );
     }, [performDelete]);
 
-    const handleSplitPress = React.useCallback((e: any) => {
-        e.stopPropagation();
-        addPanel(session.id);
-    }, [addPanel, session.id]);
-
     const itemContent = (
         <Pressable
             style={[
                 styles.sessionItem,
-                selected && styles.sessionItemSelected,
                 isSingle ? styles.sessionItemSingle :
                     isFirst ? styles.sessionItemFirst :
                         isLast ? styles.sessionItemLast : {}
             ]}
             onPressIn={() => {
                 if (isTablet) {
-                    navigateToSession(session.id);
+                    addPanel(session.id);
                 }
             }}
             onPress={() => {
@@ -414,10 +399,11 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
             <View style={styles.sessionContent}>
                 {/* Title line */}
                 <View style={styles.sessionTitleRow}>
+                    {isInSplitView && <View style={styles.splitIndicator} />}
                     <Text style={[
                         styles.sessionTitle,
                         sessionStatus.isConnected ? styles.sessionTitleConnected : styles.sessionTitleDisconnected
-                    ]} numberOfLines={1}> {/* {variant !== 'no-path' ? 1 : 2} - issue is we don't have anything to take this space yet and it looks strange - if summaries were more reliably generated, we can add this. While no summary - add something like "New session" or "Empty session", and extend summary to 2 lines once we have it */}
+                    ]} numberOfLines={1}>
                         {sessionName}
                     </Text>
                 </View>
@@ -441,23 +427,6 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                 </View>
             </View>
 
-            {/* Split view button - web only */}
-            {showSplitButton && (
-                <Pressable
-                    onPress={handleSplitPress}
-                    style={[
-                        styles.splitButton,
-                        isInSplitView && styles.splitButtonActive
-                    ]}
-                    hitSlop={4}
-                >
-                    <Ionicons
-                        name="grid-outline"
-                        size={16}
-                        color={isInSplitView ? '#fff' : theme.colors.textSecondary}
-                    />
-                </Pressable>
-            )}
         </Pressable>
     );
 

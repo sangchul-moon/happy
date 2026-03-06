@@ -171,6 +171,23 @@ export function clearNewSessionDraft() {
     mmkv.delete(NEW_SESSION_DRAFT_KEY);
 }
 
+export function loadSessionPreviews(): Record<string, string> {
+    const previews = mmkv.getString('session-previews');
+    if (previews) {
+        try {
+            return JSON.parse(previews);
+        } catch (e) {
+            console.error('Failed to parse session previews', e);
+            return {};
+        }
+    }
+    return {};
+}
+
+export function saveSessionPreviews(previews: Record<string, string>) {
+    mmkv.set('session-previews', JSON.stringify(previews));
+}
+
 export function loadSessionPermissionModes(): Record<string, PermissionMode> {
     const modes = mmkv.getString('session-permission-modes');
     if (modes) {

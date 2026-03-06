@@ -21,7 +21,7 @@ import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { useIsTablet } from '@/utils/responsive';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
-import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
+import { useSplitViewStore } from '@/hooks/useSplitView';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -83,13 +83,17 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.colors.divider,
     },
-    sessionRowSelected: {
-        backgroundColor: theme.colors.surfaceSelected,
-    },
     sessionContent: {
         flex: 1,
         marginLeft: 16,
         justifyContent: 'center',
+    },
+    splitIndicator: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: theme.colors.textLink,
+        marginRight: 6,
     },
     sessionTitleRow: {
         flexDirection: 'row',
@@ -191,18 +195,6 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         color: '#FFFFFF',
         textAlign: 'center',
         ...Typography.default('semiBold'),
-    },
-    splitButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: theme.colors.surfaceHighest,
-        marginLeft: 8,
-    },
-    splitButtonActive: {
-        backgroundColor: theme.colors.radio.active,
     },
 }));
 
@@ -363,7 +355,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const addPanel = useSplitViewStore(state => state.addPanel);
     const hasPanel = useSplitViewStore(state => state.hasPanel);
     const isInSplitView = hasPanel(session.id);
-    const showSplitButton = isSplitViewSupported() && isTablet;
 
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const result = await sessionKill(session.id);
@@ -388,21 +379,15 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         );
     }, [performArchive]);
 
-    const handleSplitPress = React.useCallback((e: any) => {
-        e.stopPropagation();
-        addPanel(session.id);
-    }, [addPanel, session.id]);
-
     const itemContent = (
         <Pressable
             style={[
                 styles.sessionRow,
                 showBorder && styles.sessionRowWithBorder,
-                selected && styles.sessionRowSelected
             ]}
             onPressIn={() => {
                 if (isTablet) {
-                    navigateToSession(session.id);
+                    addPanel(session.id);
                 }
             }}
             onPress={() => {
@@ -414,6 +399,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             <View style={styles.sessionContent}>
                 {/* Title line */}
                 <View style={styles.sessionTitleRow}>
+                    {isInSplitView && <View style={styles.splitIndicator} />}
                     <Text
                         style={[
                             styles.sessionTitle,
@@ -489,23 +475,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 </View>
             </View>
 
-            {/* Split view button - web only */}
-            {showSplitButton && (
-                <Pressable
-                    onPress={handleSplitPress}
-                    style={[
-                        styles.splitButton,
-                        isInSplitView && styles.splitButtonActive
-                    ]}
-                    hitSlop={4}
-                >
-                    <Ionicons
-                        name="grid-outline"
-                        size={16}
-                        color={isInSplitView ? '#fff' : theme.colors.textSecondary}
-                    />
-                </Pressable>
-            )}
         </Pressable>
     );
 

@@ -18,6 +18,9 @@ interface SplitViewState {
     // Add a session to split view
     addPanel: (sessionId: string) => void;
 
+    // Set a single session as the only panel (replaces all)
+    setPanel: (sessionId: string) => void;
+
     // Remove a session from split view
     removePanel: (sessionId: string) => void;
 
@@ -51,6 +54,14 @@ export const useSplitViewStore = create<SplitViewState>((set, get) => ({
         }
 
         set({ panels: [...panels, sessionId] });
+    },
+
+    setPanel: (sessionId: string) => {
+        const { panels } = get();
+        if (panels.length === 1 && panels[0] === sessionId) {
+            return;
+        }
+        set({ panels: [sessionId] });
     },
 
     removePanel: (sessionId: string) => {
