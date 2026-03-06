@@ -188,6 +188,27 @@ export function saveSessionPreviews(previews: Record<string, string>) {
     mmkv.set('session-previews', JSON.stringify(previews));
 }
 
+/** Load persisted split view panel session IDs */
+export function loadSplitViewPanels(): string[] {
+    const panels = mmkv.getString('split-view-panels');
+    if (panels) {
+        try {
+            const parsed = JSON.parse(panels);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch (e) {
+            console.error('Failed to parse split view panels', e);
+        }
+    }
+    return [];
+}
+
+/** Save split view panel session IDs */
+export function saveSplitViewPanels(panels: string[]) {
+    mmkv.set('split-view-panels', JSON.stringify(panels));
+}
+
 export function loadSessionPermissionModes(): Record<string, PermissionMode> {
     const modes = mmkv.getString('session-permission-modes');
     if (modes) {

@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { Platform } from 'react-native';
+import { loadSplitViewPanels, saveSplitViewPanels } from '@/sync/persistence';
 
 interface SplitViewState {
     // Array of session IDs currently displayed in split view
@@ -35,7 +36,7 @@ interface SplitViewState {
 }
 
 export const useSplitViewStore = create<SplitViewState>((set, get) => ({
-    panels: [],
+    panels: loadSplitViewPanels(),
     maxPanels: 4,
 
     addPanel: (sessionId: string) => {
@@ -49,11 +50,15 @@ export const useSplitViewStore = create<SplitViewState>((set, get) => ({
         // Don't exceed max panels
         if (panels.length >= maxPanels) {
             // Replace the last panel
-            set({ panels: [...panels.slice(0, -1), sessionId] });
+            const updated = [...panels.slice(0, -1), sessionId];
+            set({ panels: updated });
+            saveSplitViewPanels(updated);
             return;
         }
 
-        set({ panels: [...panels, sessionId] });
+        const updated = [...panels, sessionId];
+        set({ panels: updated });
+        saveSplitViewPanels(updated);
     },
 
     setPanel: (sessionId: string) => {
@@ -61,16 +66,21 @@ export const useSplitViewStore = create<SplitViewState>((set, get) => ({
         if (panels.length === 1 && panels[0] === sessionId) {
             return;
         }
-        set({ panels: [sessionId] });
+        const updated = [sessionId];
+        set({ panels: updated });
+        saveSplitViewPanels(updated);
     },
 
     removePanel: (sessionId: string) => {
         const { panels } = get();
-        set({ panels: panels.filter(id => id !== sessionId) });
+        const updated = panels.filter(id => id !== sessionId);
+        set({ panels: updated });
+        saveSplitViewPanels(updated);
     },
 
     closeAllPanels: () => {
         set({ panels: [] });
+        saveSplitViewPanels([]);
     },
 
     hasPanel: (sessionId: string) => {
@@ -81,7 +91,9 @@ export const useSplitViewStore = create<SplitViewState>((set, get) => ({
         const { panels } = get();
         // Trim panels if exceeding new max
         if (panels.length > max) {
-            set({ panels: panels.slice(0, max), maxPanels: max });
+            const updated = panels.slice(0, max);
+            set({ panels: updated, maxPanels: max });
+            saveSplitViewPanels(updated);
         } else {
             set({ maxPanels: max });
         }
