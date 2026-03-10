@@ -36,7 +36,7 @@ interface SplitViewState {
 }
 
 export const useSplitViewStore = create<SplitViewState>((set, get) => ({
-    panels: loadSplitViewPanels(),
+    panels: [],
     maxPanels: 4,
 
     addPanel: (sessionId: string) => {
@@ -123,6 +123,18 @@ export function useSplitViewActions() {
         closeAllPanels: state.closeAllPanels,
         hasPanel: state.hasPanel,
     }));
+}
+
+// Hydrate panels from persistent storage (call after DOM/localStorage is ready)
+export function hydrateSplitViewPanels() {
+    try {
+        const panels = loadSplitViewPanels();
+        if (panels.length > 0) {
+            useSplitViewStore.setState({ panels });
+        }
+    } catch (e) {
+        console.error('Failed to hydrate split view panels', e);
+    }
 }
 
 // Check if split view is supported (only on web/desktop)

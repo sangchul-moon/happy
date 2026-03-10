@@ -6,13 +6,18 @@ import { SidebarView } from './SidebarView';
 import { View } from 'react-native';
 import { SplitViewContainer } from './SplitViewContainer';
 import { StyleSheet } from 'react-native-unistyles';
-import { useSplitViewActive } from '@/hooks/useSplitView';
+import { useSplitViewActive, hydrateSplitViewPanels } from '@/hooks/useSplitView';
 
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
     const showDesktopLayout = auth.isAuthenticated && isTablet;
     const hasPanels = useSplitViewActive();
+
+    // Hydrate split view panels from persistent storage after mount
+    React.useEffect(() => {
+        hydrateSplitViewPanels();
+    }, []);
 
     // Phone layout: use Drawer navigator
     if (!showDesktopLayout) {
