@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { View, Pressable, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { router, useRouter } from 'expo-router';
@@ -11,7 +11,7 @@ import { StatusDot } from './StatusDot';
 import { useAllMachines, useSetting } from '@/sync/storage';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { isMachineOnline } from '@/utils/machineUtils';
-import { machineSpawnNewSession, sessionKill } from '@/sync/ops';
+import { machineSpawnNewSession, sessionKill, sessionAllow, sessionDeny } from '@/sync/ops';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { storage } from '@/sync/storage';
 import { Modal } from '@/modal';
@@ -21,6 +21,13 @@ import { useIsTablet } from '@/utils/responsive';
 import { ProjectGitStatus } from './ProjectGitStatus';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
+
+function hexToRgba(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -33,15 +40,12 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         marginHorizontal: Platform.select({ ios: 16, default: 12 }),
         borderRadius: Platform.select({ ios: 10, default: 16 }),
         overflow: 'hidden',
-        shadowColor: theme.colors.shadow.color,
-        shadowOffset: { width: 0, height: 0.33 },
-        shadowOpacity: theme.colors.shadow.opacity,
-        shadowRadius: 0,
-        elevation: 1,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
     },
     sectionHeader: {
-        paddingTop: 12,
-        paddingBottom: Platform.select({ ios: 6, default: 8 }),
+        paddingTop: 8,
+        paddingBottom: Platform.select({ ios: 4, default: 6 }),
         paddingHorizontal: Platform.select({ ios: 32, default: 24 }),
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -143,6 +147,49 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         textAlign: 'center',
         ...Typography.default('semiBold'),
     },
+    permissionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        gap: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: theme.colors.divider,
+    },
+    permissionToolName: {
+        flex: 1,
+        fontSize: 11,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    permissionButton: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
+    },
+    permissionAllowButton: {
+        backgroundColor: hexToRgba(theme.colors.status.connected, 0.19),
+    },
+    permissionAllEditsButton: {
+        backgroundColor: hexToRgba(theme.colors.textLink, 0.19),
+    },
+    permissionDenyButton: {
+        backgroundColor: hexToRgba(theme.colors.status.error, 0.19),
+    },
+    permissionButtonText: {
+        fontSize: 10,
+        fontWeight: '500',
+        ...Typography.default('semiBold'),
+    },
+    permissionAllowText: {
+        color: theme.colors.status.connected,
+    },
+    permissionAllEditsText: {
+        color: theme.colors.textLink,
+    },
+    permissionDenyText: {
+        color: theme.colors.status.error,
+    },
 }));
 
 interface ActiveSessionsGroupProps {
@@ -238,19 +285,6 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
 
                 return (
                     <View key={projectPath}>
-                        {/* Section header on grouped background */}
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionHeaderLeft}>
-                                <Text style={styles.sectionHeaderPath}>
-                                    {projectGroup.displayPath}
-                                </Text>
-                            </View>
-                            {/* Show git status instead of machine name */}
-                            {firstSession ? (
-                                <ProjectGitStatus sessionId={firstSession.id} />
-                            ) : null}
-                        </View>
-
                         {/* Card with just the sessions */}
                         <View style={styles.projectCard}>
                             {/* Sessions grouped by machine within the card */}
@@ -277,6 +311,19 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     );
 }
 
+/** Hook to find the latest pending permission from session agentState (persists across refresh) */
+function usePendingPermission(session: Session) {
+    return React.useMemo(() => {
+        const requests = session.agentState?.requests;
+        if (!requests) return null;
+        const ids = Object.keys(requests);
+        if (ids.length === 0) return null;
+        const id = ids[0];
+        const req = requests[id];
+        return { id, toolName: req.tool, input: req.arguments, description: undefined as string | undefined };
+    }, [session.agentState?.requests]);
+}
+
 // Compact session row component with status line
 const CompactSessionRow = React.memo(({ session, selected, showBorder }: { session: Session; selected?: boolean; showBorder?: boolean }) => {
     const styles = stylesheet;
@@ -287,6 +334,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     const isTablet = useIsTablet();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
+    const pendingPermission = usePendingPermission(session);
+    const [permissionLoading, setPermissionLoading] = React.useState<'allow' | 'allEdits' | 'deny' | null>(null);
+    const isEditTool = pendingPermission && ['Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'ExitPlanMode', 'exit_plan_mode'].includes(pendingPermission.toolName);
 
     const [archivingSession, performArchive] = useHappyAction(async () => {
         const result = await sessionKill(session.id);
@@ -312,10 +362,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     }, [performArchive]);
 
     const itemContent = (
+        <View>
         <Pressable
             style={[
                 styles.sessionRow,
-                showBorder && styles.sessionRowWithBorder,
+                showBorder && !pendingPermission && styles.sessionRowWithBorder,
                 selected && styles.sessionRowSelected
             ]}
             onPressIn={() => {
@@ -345,34 +396,34 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                                 />
                             );
                         }
-                        
+
                         // Show status dot only for permission_required/thinking states
                         if (sessionStatus.state === 'permission_required' || sessionStatus.state === 'thinking') {
                             return (
                                 <View style={[styles.statusDotContainer, { marginRight: 8 }]}>
-                                    <StatusDot 
-                                        color={sessionStatus.statusDotColor} 
-                                        isPulsing={sessionStatus.isPulsing} 
+                                    <StatusDot
+                                        color={sessionStatus.statusDotColor}
+                                        isPulsing={sessionStatus.isPulsing}
                                     />
                                 </View>
                             );
                         }
-                        
+
                         // Show grey dot for online without draft
                         if (sessionStatus.state === 'waiting') {
                             return (
                                 <View style={[styles.statusDotContainer, { marginRight: 8 }]}>
-                                    <StatusDot 
-                                        color={theme.colors.textSecondary} 
-                                        isPulsing={false} 
+                                    <StatusDot
+                                        color={theme.colors.textSecondary}
+                                        isPulsing={false}
                                     />
                                 </View>
                             );
                         }
-                        
+
                         return null;
                     })()}
-                    
+
                     <Text
                         style={[
                             styles.sessionTitle,
@@ -385,6 +436,89 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                 </View>
             </View>
         </Pressable>
+        {pendingPermission && (
+            <View style={[styles.permissionRow, showBorder && styles.sessionRowWithBorder]}>
+                <Text style={styles.permissionToolName} numberOfLines={1}>
+                    {pendingPermission.toolName}
+                    {pendingPermission.input?.file_path ? `: ${pendingPermission.input.file_path.split('/').pop()}` :
+                     pendingPermission.input?.command ? `: ${pendingPermission.input.command}` :
+                     pendingPermission.input?.pattern ? `: ${pendingPermission.input.pattern}` :
+                     pendingPermission.description ? `: ${pendingPermission.description}` : ''}
+                </Text>
+                <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={{ backgroundColor: hexToRgba(theme.colors.status.connected, 0.19), paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}
+                    onPress={async () => {
+                        if (permissionLoading) return;
+                        setPermissionLoading('allow');
+                        try {
+                            await sessionAllow(session.id, pendingPermission.id);
+                        } finally {
+                            setPermissionLoading(null);
+                        }
+                    }}
+                    disabled={permissionLoading !== null}
+                >
+                    {permissionLoading === 'allow' ? (
+                        <ActivityIndicator size="small" color={theme.colors.status.connected} />
+                    ) : (
+                        <Text style={[styles.permissionButtonText, styles.permissionAllowText]}>Allow</Text>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={{ backgroundColor: hexToRgba(theme.colors.textLink, 0.19), paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}
+                    onPress={async () => {
+                        if (permissionLoading) return;
+                        setPermissionLoading('allEdits');
+                        try {
+                            if (isEditTool) {
+                                await sessionAllow(session.id, pendingPermission.id, 'acceptEdits');
+                                storage.getState().updateSessionPermissionMode(session.id, 'acceptEdits');
+                            } else {
+                                let toolIdentifier = pendingPermission.toolName;
+                                if (pendingPermission.toolName === 'Bash' && pendingPermission.input?.command) {
+                                    toolIdentifier = `Bash(${pendingPermission.input.command})`;
+                                }
+                                await sessionAllow(session.id, pendingPermission.id, undefined, [toolIdentifier]);
+                            }
+                        } finally {
+                            setPermissionLoading(null);
+                        }
+                    }}
+                    disabled={permissionLoading !== null}
+                >
+                    {permissionLoading === 'allEdits' ? (
+                        <ActivityIndicator size="small" color={theme.colors.textLink} />
+                    ) : (
+                        <Text style={[styles.permissionButtonText, styles.permissionAllEditsText]}>
+                            {isEditTool ? 'All Edits' : 'Always'}
+                        </Text>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={{ backgroundColor: hexToRgba(theme.colors.status.error, 0.19), paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}
+                    onPress={async () => {
+                        if (permissionLoading) return;
+                        setPermissionLoading('deny');
+                        try {
+                            await sessionDeny(session.id, pendingPermission.id);
+                        } finally {
+                            setPermissionLoading(null);
+                        }
+                    }}
+                    disabled={permissionLoading !== null}
+                >
+                    {permissionLoading === 'deny' ? (
+                        <ActivityIndicator size="small" color={theme.colors.status.error} />
+                    ) : (
+                        <Text style={[styles.permissionButtonText, styles.permissionDenyText]}>Deny</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        )}
+        </View>
     );
 
     if (!swipeEnabled) {

@@ -127,10 +127,10 @@ class ApiSocket {
             throw new Error('RPC call returned empty response');
         }
         if (result.ok) {
-            const decrypted = await sessionEncryption.decryptRaw(result.result);
-            if (decrypted === null || decrypted === undefined) {
-                throw new Error(`Failed to decrypt RPC response for method: ${method}`);
+            if (result.result === null || result.result === undefined) {
+                return undefined as R;
             }
+            const decrypted = await sessionEncryption.decryptRaw(result.result);
             return decrypted as R;
         }
         throw new Error(result.error || 'RPC call failed');
