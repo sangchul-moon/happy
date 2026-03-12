@@ -315,20 +315,27 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessi
             machineGroup.sessions.push(session);
         });
 
-        // Sort sessions within each machine group by creation time (newest first)
+        // Sort sessions within each machine group by last update time (newest first)
         groups.forEach(projectGroup => {
             projectGroup.machines.forEach(machineGroup => {
-                machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
+                machineGroup.sessions.sort((a, b) => b.updatedAt - a.updatedAt);
             });
         });
 
         return groups;
     }, [sessions, machinesMap]);
 
-    // Sort project groups by display path
+    // Sort project groups by most recent update (newest first)
     const sortedProjectGroups = React.useMemo(() => {
+        const getGroupMaxUpdatedAt = (group: { machines: Map<string, { sessions: Session[] }> }) => {
+            let max = 0;
+            group.machines.forEach(machine => {
+                machine.sessions.forEach(s => { if (s.updatedAt > max) max = s.updatedAt; });
+            });
+            return max;
+        };
         return Array.from(projectGroups.entries()).sort(([, groupA], [, groupB]) => {
-            return groupA.displayPath.localeCompare(groupB.displayPath);
+            return getGroupMaxUpdatedAt(groupB) - getGroupMaxUpdatedAt(groupA);
         });
     }, [projectGroups]);
 

@@ -163,7 +163,7 @@ function buildSessionListViewData(
         }
     });
 
-    // Sort sessions by updated date (newest first)
+    // Sort sessions by last update time (newest first)
     activeSessions.sort((a, b) => b.updatedAt - a.updatedAt);
     inactiveSessions.sort((a, b) => b.updatedAt - a.updatedAt);
 
