@@ -34,15 +34,12 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         marginHorizontal: Platform.select({ ios: 16, default: 12 }),
         borderRadius: Platform.select({ ios: 10, default: 16 }),
         overflow: 'hidden',
-        shadowColor: theme.colors.shadow.color,
-        shadowOffset: { width: 0, height: 0.33 },
-        shadowOpacity: theme.colors.shadow.opacity,
-        shadowRadius: 0,
-        elevation: 1,
+        borderWidth: 1,
+        borderColor: theme.colors.divider,
     },
     sectionHeader: {
-        paddingTop: 12,
-        paddingBottom: Platform.select({ ios: 6, default: 8 }),
+        paddingTop: 8,
+        paddingBottom: Platform.select({ ios: 4, default: 6 }),
         paddingHorizontal: Platform.select({ ios: 32, default: 24 }),
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -73,7 +70,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         textAlign: 'right',
     },
     sessionRow: {
-        height: 88,
+        height: 52,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
@@ -85,25 +82,29 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     sessionContent: {
         flex: 1,
-        marginLeft: 16,
         justifyContent: 'center',
     },
-    splitIndicator: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: theme.colors.textLink,
-        marginRight: 6,
+    statusDotRight: {
+        marginLeft: 8,
     },
     sessionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 3,
     },
     sessionTitle: {
-        fontSize: 15,
-        fontWeight: '500',
-        ...Typography.default('semiBold'),
+        fontSize: 14,
+        ...Typography.default('regular'),
+        flex: 1,
+    },
+    sessionFolder: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+        marginLeft: 8,
+    },
+    sessionFolderActive: {
+        color: theme.colors.textLink,
     },
     sessionTitleConnected: {
         color: theme.colors.text,
@@ -165,7 +166,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     activityText: {
         fontSize: 12,
         color: theme.colors.textSecondary,
-        marginBottom: 4,
+        marginBottom: 2,
         ...Typography.default(),
     },
     taskStatusContainer: {
@@ -292,27 +293,6 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId }: ActiveSessi
 
                 return (
                     <View key={projectPath}>
-                        {/* Section header on grouped background */}
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionHeaderLeft}>
-                                <Text style={styles.sectionHeaderPath}>
-                                    {projectGroup.displayPath}
-                                </Text>
-                            </View>
-                            {/* Show git status instead of machine name */}
-                            {(() => {
-                                // Get the first session from any machine in this project
-                                const firstSession = Array.from(projectGroup.machines.values())[0]?.sessions[0];
-                                return firstSession ? (
-                                    <ProjectGitStatus sessionId={firstSession.id} />
-                                ) : (
-                                    <Text style={styles.sectionHeaderMachine} numberOfLines={1}>
-                                        {machineName}
-                                    </Text>
-                                );
-                            })()}
-                        </View>
-
                         {/* Card with just the sessions */}
                         <View style={styles.projectCard}>
                             {/* Sessions grouped by machine within the card */}
@@ -397,82 +377,33 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             }}
         >
             <View style={styles.sessionContent}>
-                {/* Title line */}
                 <View style={styles.sessionTitleRow}>
-                    {isInSplitView && <View style={styles.splitIndicator} />}
                     <Text
                         style={[
                             styles.sessionTitle,
                             sessionStatus.isConnected ? styles.sessionTitleConnected : styles.sessionTitleDisconnected
                         ]}
-                        numberOfLines={2}
+                        numberOfLines={1}
                     >
                         {sessionName}
                     </Text>
+                    {session.metadata?.path && (
+                        <Text style={[
+                            styles.sessionFolder,
+                            isInSplitView && styles.sessionFolderActive
+                        ]} numberOfLines={1}>
+                            {session.metadata.path.split('/').pop()}
+                        </Text>
+                    )}
+                    <View style={styles.statusDotRight}>
+                        <StatusDot color={sessionStatus.statusDotColor} isPulsing={sessionStatus.isPulsing} />
+                    </View>
                 </View>
-
-                {/* Activity text */}
                 {activityText && (
                     <Text style={styles.activityText} numberOfLines={1}>
                         {activityText}
                     </Text>
                 )}
-
-                {/* Status line with dot */}
-                <View style={styles.statusRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={styles.statusDotContainer}>
-                            <StatusDot color={sessionStatus.statusDotColor} isPulsing={sessionStatus.isPulsing} />
-                        </View>
-                        <Text style={[
-                            styles.statusText,
-                            { color: sessionStatus.statusColor }
-                        ]}>
-                            {sessionStatus.statusText}
-                        </Text>
-                    </View>
-
-                    {/* Status indicators on the right side */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, transform: [{ translateY: 1 }] }}>
-                        {/* Draft status indicator */}
-                        {session.draft && (
-                            <View style={styles.taskStatusContainer}>
-                                <Ionicons
-                                    name="create-outline"
-                                    size={10}
-                                    color={styles.taskStatusText.color}
-                                />
-                            </View>
-                        )}
-
-                        {/* No longer showing git status per item - it's in the header */}
-
-                        {/* Task status indicator */}
-                        {Array.isArray(session.todos) && session.todos.length > 0 && (() => {
-                            const totalTasks = session.todos.length;
-                            const completedTasks = session.todos.filter(t => t.status === 'completed').length;
-
-                            // Don't show if all tasks are completed
-                            if (completedTasks === totalTasks) {
-                                return null;
-                            }
-
-                            return (
-                                <View style={styles.taskStatusContainer}>
-                                    <Ionicons
-                                        name="bulb-outline"
-                                        size={10}
-                                        color={styles.taskStatusText.color}
-                                        style={{ marginRight: 2 }}
-                                    />
-                                    <Text style={styles.taskStatusText}>
-                                        {completedTasks}/{totalTasks}
-                                    </Text>
-                                </View>
-                            );
-                        })()}
-                    </View>
-                </View>
             </View>
 
         </Pressable>
