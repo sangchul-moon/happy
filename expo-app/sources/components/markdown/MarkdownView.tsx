@@ -65,7 +65,7 @@ export const MarkdownView = React.memo((props: {
                     } else if (block.type === 'options') {
                         return <RenderOptionsBlock items={block.items} key={index} first={index === 0} last={index === blocks.length - 1} selectable={selectable} onOptionPress={props.onOptionPress} />;
                     } else if (block.type === 'table') {
-                        return <RenderTableBlock headers={block.headers} rows={block.rows} key={index} first={index === 0} last={index === blocks.length - 1} />;
+                        return <RenderTableBlock headers={block.headers} rows={block.rows} key={index} first={index === 0} last={index === blocks.length - 1} selectable={selectable} />;
                     } else {
                         return null;
                     }
@@ -235,7 +235,8 @@ function RenderTableBlock(props: {
     headers: string[],
     rows: string[][],
     first: boolean,
-    last: boolean
+    last: boolean,
+    selectable: boolean
 }) {
     const columnCount = props.headers.length;
     // Calculate cell width: minimum 100px per cell, but expand to fill if fewer columns
@@ -255,7 +256,7 @@ function RenderTableBlock(props: {
                     <View style={style.tableRow}>
                         {props.headers.map((header, index) => (
                             <View key={`header-${index}`} style={[style.tableCell, style.tableHeaderCell, { minWidth: cellMinWidth }]}>
-                                <Text style={style.tableHeaderText}>{header}</Text>
+                                <Text selectable={props.selectable} style={style.tableHeaderText}>{header}</Text>
                             </View>
                         ))}
                     </View>
@@ -264,7 +265,7 @@ function RenderTableBlock(props: {
                         <View key={`row-${rowIndex}`} style={[style.tableRow, isLastRow(rowIndex) && style.tableRowLast]}>
                             {props.headers.map((_, cellIndex) => (
                                 <View key={`cell-${rowIndex}-${cellIndex}`} style={[style.tableCell, { minWidth: cellMinWidth }]}>
-                                    <Text style={style.tableCellText}>{row[cellIndex] ?? ''}</Text>
+                                    <Text selectable={props.selectable} style={style.tableCellText}>{row[cellIndex] ?? ''}</Text>
                                 </View>
                             ))}
                         </View>
