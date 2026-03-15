@@ -1,12 +1,14 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import 'react-native-reanimated';
 import * as React from 'react';
 import { Typography } from '@/constants/Typography';
 import { createHeader } from '@/components/navigation/Header';
 import { Platform, TouchableOpacity, Text } from 'react-native';
 import { isRunningOnMac } from '@/utils/platform';
+import { useIsTablet } from '@/utils/responsive';
 import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
+import { Ionicons } from '@expo/vector-icons';
 
 export const unstable_settings = {
     initialRouteName: 'index',
@@ -16,6 +18,8 @@ export default function RootLayout() {
     // Use custom header on Android and Mac Catalyst, native header on iOS (non-Catalyst)
     const shouldUseCustomHeader = Platform.OS === 'android' || isRunningOnMac() || Platform.OS === 'web';
     const { theme } = useUnistyles();
+    const isTablet = useIsTablet();
+    const router = useRouter();
 
     return (
         <Stack
@@ -58,7 +62,12 @@ export default function RootLayout() {
                 options={{
                     headerShown: true,
                     headerTitle: t('settings.title'),
-                    headerBackTitle: t('common.home')
+                    headerBackTitle: t('common.home'),
+                    headerLeft: isTablet ? () => (
+                        <TouchableOpacity onPress={() => router.navigate('/')} style={{ paddingRight: 16 }}>
+                            <Ionicons name="chevron-back" size={24} color={theme.colors.header.tint} />
+                        </TouchableOpacity>
+                    ) : undefined,
                 }}
             />
             <Stack.Screen

@@ -45,8 +45,8 @@ const stylesheet = StyleSheet.create((theme) => ({
     headerSection: {
         backgroundColor: theme.colors.groupped.background,
         paddingHorizontal: 24,
-        paddingTop: 20,
-        paddingBottom: 8,
+        paddingTop: 14,
+        paddingBottom: 6,
     },
     headerText: {
         fontSize: 14,
@@ -57,7 +57,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     projectGroup: {
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingVertical: 8,
         backgroundColor: theme.colors.surface,
     },
     projectGroupTitle: {
@@ -73,7 +73,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     sessionItem: {
-        height: 88,
+        height: 64,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
@@ -102,15 +102,14 @@ const stylesheet = StyleSheet.create((theme) => ({
     sessionItemContainerLast: {
         borderBottomLeftRadius: 12,
         borderBottomRightRadius: 12,
-        marginBottom: 12,
+        marginBottom: 8,
     },
     sessionItemContainerSingle: {
         borderRadius: 12,
-        marginBottom: 12,
+        marginBottom: 8,
     },
     sessionContent: {
         flex: 1,
-        marginLeft: 16,
         justifyContent: 'center',
     },
     splitIndicator: {
@@ -123,7 +122,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     sessionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 2,
+        marginBottom: 1,
     },
     sessionTitle: {
         fontSize: 15,
@@ -138,9 +137,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         color: theme.colors.textSecondary,
     },
     sessionSubtitle: {
-        fontSize: 13,
+        fontSize: 12,
         color: theme.colors.textSecondary,
-        marginBottom: 4,
+        marginBottom: 2,
         ...Typography.default(),
     },
     statusRow: {
@@ -337,6 +336,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
     const subtitleText = activityText || sessionSubtitle;
     const navigateToSession = useNavigateToSession();
     const isTablet = useIsTablet();
+    const router = useRouter();
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
 
@@ -379,6 +379,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
             onPressIn={() => {
                 if (isTablet) {
                     addPanel(session.id);
+                    router.navigate('/');
                 }
             }}
             onPress={() => {

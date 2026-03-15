@@ -7,12 +7,18 @@ import { View } from 'react-native';
 import { SplitViewContainer } from './SplitViewContainer';
 import { StyleSheet } from 'react-native-unistyles';
 import { useSplitViewActive, hydrateSplitViewPanels } from '@/hooks/useSplitView';
+import { useSegments } from 'expo-router';
 
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
     const showDesktopLayout = auth.isAuthenticated && isTablet;
     const hasPanels = useSplitViewActive();
+    const segments = useSegments();
+    // Hide split overlay when navigating to non-index routes (e.g. settings, inbox)
+    // so the Drawer content is visible above the split view
+    const isOnIndexRoute = segments.length <= 1 || (segments.length === 2 && (segments[1] as string) === 'index');
+    const showSplitOverlay = hasPanels && isOnIndexRoute;
 
     // Hydrate split view panels from persistent storage after mount
     React.useEffect(() => {
@@ -57,8 +63,8 @@ export const SidebarNavigator = React.memo(() => {
                         },
                     }}
                 />
-                {/* SplitViewContainer overlays when panels exist */}
-                {hasPanels && (
+                {/* SplitViewContainer overlays when panels exist and on index route */}
+                {showSplitOverlay && (
                     <View style={styles.splitOverlay}>
                         <SplitViewContainer />
                     </View>
