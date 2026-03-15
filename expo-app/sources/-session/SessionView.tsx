@@ -25,6 +25,7 @@ import { useDeviceType, useHeaderHeight, useIsLandscape, useIsTablet } from '@/u
 import { formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { isVersionSupported, MINIMUM_CLI_VERSION } from '@/utils/versionUtils';
 import { FileExplorerSheet } from '@/components/FileExplorerSheet';
+import { SessionInfoContent } from '@/app/(app)/session/[id]/info';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
@@ -152,9 +153,11 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const safeArea = useSafeAreaInsets();
     const isLandscape = useIsLandscape();
     const deviceType = useDeviceType();
+    const isTablet = useIsTablet();
     const [message, setMessage] = React.useState('');
     const realtimeStatus = useRealtimeStatus();
     const [showFileExplorer, setShowFileExplorer] = React.useState(false);
+    const [showInfo, setShowInfo] = React.useState(false);
     const { messages, isLoaded } = useSessionMessages(sessionId);
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
 
@@ -320,6 +323,13 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
             onAbort={() => sessionAbort(sessionId)}
             showAbortButton={sessionStatus.state === 'thinking' || sessionStatus.state === 'waiting'}
             onFileViewerPress={() => setShowFileExplorer(true)}
+            onInfoPress={() => {
+                if (isTablet) {
+                    setShowInfo(true);
+                } else {
+                    router.push(`/session/${sessionId}/info`);
+                }
+            }}
             // Autocomplete configuration
             autocompletePrefixes={['@', '/']}
             autocompleteSuggestions={(query) => getSuggestions(sessionId, query)}
@@ -388,11 +398,22 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
 
             {/* Main content area - no padding since header is overlay */}
             <View style={{ flexBasis: 0, flexGrow: 1, paddingBottom: safeArea.bottom + ((isRunningOnMac() || Platform.OS === 'web') ? 32 : 0) }}>
-                <AgentContentView
-                    content={content}
-                    input={input}
-                    placeholder={placeholder}
-                />
+                {showInfo ? (
+                    <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 }}>
+                            <Pressable onPress={() => setShowInfo(false)} hitSlop={8}>
+                                <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
+                            </Pressable>
+                        </View>
+                        <SessionInfoContent session={session} />
+                    </View>
+                ) : (
+                    <AgentContentView
+                        content={content}
+                        input={input}
+                        placeholder={placeholder}
+                    />
+                )}
             </View >
 
             {/* File explorer bottom sheet */}

@@ -74,6 +74,7 @@ interface AgentInputProps {
     onProfileClick?: () => void;
     onAttachFile?: () => void;
     attachedFilesView?: React.ReactNode;
+    onInfoPress?: () => void;
 }
 
 const MAX_CONTEXT_SIZE = 190000;
@@ -1103,8 +1104,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                     color={theme.colors.button.secondary.tint}
                                                 />
                                             ) : (
-                                                <Octicons
-                                                    name={"stop"}
+                                                <Ionicons
+                                                    name={"ban"}
                                                     size={16}
                                                     color={theme.colors.button.secondary.tint}
                                                 />
@@ -1115,6 +1116,33 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                                 {/* File Browser Button */}
                                 <FileBrowserButton onPress={props.onFileViewerPress} />
+
+                                {/* Info Button */}
+                                {props.onInfoPress && (
+                                    <Pressable
+                                        onPress={() => {
+                                            hapticsLight();
+                                            props.onInfoPress?.();
+                                        }}
+                                        hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
+                                        style={(p) => ({
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            borderRadius: Platform.select({ default: 16, android: 20 }),
+                                            paddingHorizontal: 8,
+                                            paddingVertical: 6,
+                                            justifyContent: 'center',
+                                            height: 32,
+                                            opacity: p.pressed ? 0.7 : 1,
+                                        })}
+                                    >
+                                        <Ionicons
+                                            name="information-circle-outline"
+                                            size={18}
+                                            color={theme.colors.button.secondary.tint}
+                                        />
+                                    </Pressable>
+                                )}
                                 </View>
 
                                 {/* Send/Voice button - aligned with first row */}
