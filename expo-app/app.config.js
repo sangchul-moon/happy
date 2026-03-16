@@ -5,16 +5,16 @@ const name = {
     production: "Happy"
 }[variant];
 const bundleId = {
-    development: "com.slopus.happy.dev",
-    preview: "com.slopus.happy.preview",
-    production: "com.ex3ndr.happy"
+    development: "io.obr1.happy.dev",
+    preview: "io.obr1.happy.preview",
+    production: "io.obr1.happy"
 }[variant];
 
 export default {
     expo: {
         name,
         slug: "happy",
-        version: "1.6.2",
+        version: "1.6.3",
         runtimeVersion: "18",
         orientation: "default",
         icon: "./sources/assets/images/icon.png",
@@ -34,7 +34,10 @@ export default {
             infoPlist: {
                 NSMicrophoneUsageDescription: "Allow $(PRODUCT_NAME) to access your microphone for voice conversations with AI.",
                 NSLocalNetworkUsageDescription: "Allow $(PRODUCT_NAME) to find and connect to local devices on your network.",
-                NSBonjourServices: ["_http._tcp", "_https._tcp"]
+                NSBonjourServices: ["_http._tcp", "_https._tcp"],
+                NSAppTransportSecurity: {
+                    NSAllowsArbitraryLoads: true
+                }
             },
             associatedDomains: variant === 'production' ? ["applinks:app.happy.engineering"] : []
         },
@@ -163,7 +166,7 @@ export default {
                 root: "./sources/app"
             },
             eas: {
-                projectId: "4558dd3d-cd5a-47cd-bad9-e591a241cc06"
+                projectId: "89c60bc2-eac3-47ee-bd28-341f506fcec0"
             },
             app: {
                 postHogKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
@@ -172,6 +175,6 @@ export default {
                 revenueCatStripeKey: process.env.EXPO_PUBLIC_REVENUE_CAT_STRIPE
             }
         },
-        owner: "bulkacorp"
+        owner: "gidongwii"
     }
 };

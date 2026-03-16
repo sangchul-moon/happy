@@ -11,6 +11,8 @@ export interface AuthCredentials {
 
 export async function authQRWait(keypair: QRAuthKeyPair, onProgress?: (dots: number) => void, shouldCancel?: () => boolean): Promise<AuthCredentials | null> {
     let dots = 0;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
     const serverUrl = getServerUrl();
 
     while (true) {
@@ -23,25 +25,33 @@ export async function authQRWait(keypair: QRAuthKeyPair, onProgress?: (dots: num
                 publicKey: encodeBase64(keypair.publicKey),
             });
 
+            consecutiveErrors = 0;
+
             if (response.data.state === 'authorized') {
                 const token = response.data.token as string;
-                const encryptedResponse = decodeBase64(response.data.response);
-                
+                const responseStr = response.data.response as string;
+
+                const encryptedResponse = decodeBase64(responseStr);
+
                 const decrypted = decryptBox(encryptedResponse, keypair.secretKey);
                 if (decrypted) {
-                    console.log('\n\n✓ Authentication successful\n');
                     return {
                         secret: decrypted,
                         token: token
                     };
                 } else {
-                    console.log('\n\nFailed to decrypt response. Please try again.');
-                    return null;
+                    throw new Error(`Decrypt failed. bundle=${encryptedResponse.length}bytes, sk=${keypair.secretKey.length}bytes`);
                 }
             }
-        } catch (error) {
-            console.log('\n\nFailed to check authentication status. Please try again.');
-            return null;
+        } catch (error: any) {
+            // Decrypt failures are thrown as errors, propagate them
+            if (error?.message?.startsWith('Decrypt failed')) {
+                throw error;
+            }
+            consecutiveErrors++;
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                throw new Error(`Poll failed ${MAX_CONSECUTIVE_ERRORS} times: ${error?.message || String(error)}`);
+            }
         }
 
         // Call progress callback if provided

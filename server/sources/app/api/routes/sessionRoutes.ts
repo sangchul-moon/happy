@@ -309,12 +309,19 @@ export function sessionRoutes(app: Fastify) {
         schema: {
             params: z.object({
                 sessionId: z.string()
+            }),
+            querystring: z.object({
+                after: z.coerce.number().optional(),
+                before: z.coerce.number().optional(),
+                limit: z.coerce.number().min(1).max(200).optional()
             })
         },
         preHandler: app.authenticate
     }, async (request, reply) => {
         const userId = request.userId;
         const { sessionId } = request.params;
+        const { after, before, limit } = request.query;
+        const take = limit ?? 150;
 
         // Verify session belongs to user
         const session = await db.session.findFirst({
@@ -328,10 +335,18 @@ export function sessionRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
+        // Build seq filter for cursor-based pagination
+        const seqFilter: { gt?: number; lt?: number } = {};
+        if (after !== undefined) seqFilter.gt = after;
+        if (before !== undefined) seqFilter.lt = before;
+
         const messages = await db.sessionMessage.findMany({
-            where: { sessionId },
-            orderBy: { createdAt: 'desc' },
-            take: 150,
+            where: {
+                sessionId,
+                ...(Object.keys(seqFilter).length > 0 ? { seq: seqFilter } : {})
+            },
+            orderBy: { seq: 'desc' },
+            take,
             select: {
                 id: true,
                 seq: true,
@@ -350,7 +365,8 @@ export function sessionRoutes(app: Fastify) {
                 localId: v.localId,
                 createdAt: v.createdAt.getTime(),
                 updatedAt: v.updatedAt.getTime()
-            }))
+            })),
+            hasMore: messages.length === take
         });
     });
 

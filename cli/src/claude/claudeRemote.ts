@@ -213,6 +213,7 @@ export async function claudeRemote(opts: {
                     return;
                 }
                 mode = next.mode;
+                updateThinking(true);
                 messages.push({ type: 'user', message: { role: 'user', content: next.message } });
             }
 

@@ -12,6 +12,7 @@ import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
 import { t } from '@/text';
 import { FileIcon } from '@/components/FileIcon';
+import { log } from '@/log';
 
 interface FileContent {
     content: string;
@@ -80,7 +81,7 @@ export default function FileScreen() {
     try {
         filePath = encodedPath ? atob(encodedPath) : '';
     } catch (error) {
-        console.error('Failed to decode file path:', error);
+        log.error('Failed to decode file path:', error);
         filePath = encodedPath || ''; // Fallback to original path if decoding fails
     }
     
@@ -205,7 +206,7 @@ export default function FileScreen() {
                             setDiffContent(diffResponse.stdout);
                         }
                     } catch (diffError) {
-                        console.log('Could not fetch git diff:', diffError);
+                        log.debug('Could not fetch git diff:', diffError);
                         // Continue with file loading even if diff fails
                     }
                 }
@@ -246,7 +247,7 @@ export default function FileScreen() {
                     }
                 }
             } catch (error) {
-                console.error('Failed to load file:', error);
+                log.error('Failed to load file:', error);
                 if (!isCancelled) {
                     setError('Failed to load file');
                 }

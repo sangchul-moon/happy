@@ -15,6 +15,7 @@ import { getToolName } from "./getToolName";
 import { EnhancedMode, PermissionMode } from "../loop";
 import { getToolDescriptor } from "./getToolDescriptor";
 import { delay } from "@/utils/time";
+import { PushNotificationClient } from "@/api/pushNotifications";
 
 interface PermissionResponse {
     id: string;
@@ -200,10 +201,14 @@ export class PermissionHandler {
                 this.onPermissionRequestCallback(id);
             }
             
-            // Send push notification
+            // Send push notification with project context and tool detail
+            const project = PushNotificationClient.projectName(this.session.path);
+            const detail = PushNotificationClient.permissionDetail(toolName, input);
+            const bodyParts = [getToolName(toolName)];
+            if (detail) bodyParts.push(detail);
             this.session.api.push().sendToAllDevices(
-                'Permission Request',
-                `Claude wants to ${getToolName(toolName)}`,
+                `${project}`,
+                bodyParts.join(' · '),
                 {
                     sessionId: this.session.client.sessionId,
                     requestId: id,

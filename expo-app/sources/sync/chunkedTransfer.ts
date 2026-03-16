@@ -148,7 +148,12 @@ export async function chunkedUpload(options: ChunkedUploadOptions): Promise<void
             const chunk = data.slice(start, end);
 
             // Convert chunk to base64 for transport within JSON params
-            const chunkBase64 = btoa(String.fromCharCode(...chunk));
+            // Note: Cannot use String.fromCharCode(...chunk) as spread on large arrays exceeds call stack
+            let binary = '';
+            for (let j = 0; j < chunk.length; j++) {
+                binary += String.fromCharCode(chunk[j]);
+            }
+            const chunkBase64 = btoa(binary);
 
             await apiSocket.sessionRPC(sessionId, 'chunkedWriteChunk', {
                 transferId,

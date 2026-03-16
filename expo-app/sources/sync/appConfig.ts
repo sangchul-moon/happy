@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import { log } from '@/log';
 
 export interface AppConfig {
     postHogKey?: string;
@@ -34,7 +35,7 @@ export function loadAppConfig(): AppConfig {
                 try {
                     exponentManifest = JSON.parse(exponentManifest);
                 } catch (e) {
-                    console.warn('[loadAppConfig] Failed to parse ExponentConstants.manifest:', e);
+                    log.warn('[loadAppConfig] Failed to parse ExponentConstants.manifest:', e);
                 }
             }
 
@@ -42,11 +43,11 @@ export function loadAppConfig(): AppConfig {
             const appConfig = exponentManifest?.extra?.app;
             if (appConfig && typeof appConfig === 'object') {
                 Object.assign(config, appConfig);
-                console.log('[loadAppConfig] Loaded from ExponentConstants:', Object.keys(config));
+                log.debug('[loadAppConfig] Loaded from ExponentConstants:', Object.keys(config));
             }
         }
     } catch (e) {
-        console.warn('[loadAppConfig] Error accessing ExponentConstants:', e);
+        log.warn('[loadAppConfig] Error accessing ExponentConstants:', e);
     }
 
     try {
@@ -55,45 +56,45 @@ export function loadAppConfig(): AppConfig {
             const appConfig = Constants.expoConfig.extra.app;
             if (typeof appConfig === 'object') {
                 Object.assign(config, appConfig);
-                console.log('[loadAppConfig] Loaded from Constants.expoConfig:', Object.keys(config));
+                log.debug('[loadAppConfig] Loaded from Constants.expoConfig:', Object.keys(config));
             }
         }
     } catch (e) {
-        console.warn('[loadAppConfig] Error accessing Constants.expoConfig:', e);
+        log.warn('[loadAppConfig] Error accessing Constants.expoConfig:', e);
     }
 
-    console.log('[loadAppConfig] Final merged config:', JSON.stringify(config, null, 2));
+    log.debug('[loadAppConfig] Final merged config:', JSON.stringify(config, null, 2));
 
     // Override with EXPO_PUBLIC_* env vars if present at runtime and different
     // Why: Native config is baked at prebuild time, but EXPO_PUBLIC_* vars
     // are available at runtime via process.env. This allows devs to change
     // keys without rebuilding native code.
     if (process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE && config.revenueCatAppleKey !== process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE) {
-        console.log('[loadAppConfig] Override revenueCatAppleKey from EXPO_PUBLIC_REVENUE_CAT_APPLE');
+        log.debug('[loadAppConfig] Override revenueCatAppleKey from EXPO_PUBLIC_REVENUE_CAT_APPLE');
         config.revenueCatAppleKey = process.env.EXPO_PUBLIC_REVENUE_CAT_APPLE;
     }
     if (process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE && config.revenueCatGoogleKey !== process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE) {
-        console.log('[loadAppConfig] Override revenueCatGoogleKey from EXPO_PUBLIC_REVENUE_CAT_GOOGLE');
+        log.debug('[loadAppConfig] Override revenueCatGoogleKey from EXPO_PUBLIC_REVENUE_CAT_GOOGLE');
         config.revenueCatGoogleKey = process.env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE;
     }
     if (process.env.EXPO_PUBLIC_REVENUE_CAT_STRIPE && config.revenueCatStripeKey !== process.env.EXPO_PUBLIC_REVENUE_CAT_STRIPE) {
-        console.log('[loadAppConfig] Override revenueCatStripeKey from EXPO_PUBLIC_REVENUE_CAT_STRIPE');
+        log.debug('[loadAppConfig] Override revenueCatStripeKey from EXPO_PUBLIC_REVENUE_CAT_STRIPE');
         config.revenueCatStripeKey = process.env.EXPO_PUBLIC_REVENUE_CAT_STRIPE;
     }
     if (process.env.EXPO_PUBLIC_POSTHOG_KEY && config.postHogKey !== process.env.EXPO_PUBLIC_POSTHOG_KEY) {
-        console.log('[loadAppConfig] Override postHogKey from EXPO_PUBLIC_POSTHOG_KEY');
+        log.debug('[loadAppConfig] Override postHogKey from EXPO_PUBLIC_POSTHOG_KEY');
         config.postHogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
     }
     if (process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_DEV && config.elevenLabsAgentIdDev !== process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_DEV) {
-        console.log('[loadAppConfig] Override elevenLabsAgentIdDev from EXPO_PUBLIC_ELEVENLABS_AGENT_ID_DEV');
+        log.debug('[loadAppConfig] Override elevenLabsAgentIdDev from EXPO_PUBLIC_ELEVENLABS_AGENT_ID_DEV');
         config.elevenLabsAgentIdDev = process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_DEV;
     }
     if (process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_PROD && config.elevenLabsAgentIdProd !== process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_PROD) {
-        console.log('[loadAppConfig] Override elevenLabsAgentIdProd from EXPO_PUBLIC_ELEVENLABS_AGENT_ID_PROD');
+        log.debug('[loadAppConfig] Override elevenLabsAgentIdProd from EXPO_PUBLIC_ELEVENLABS_AGENT_ID_PROD');
         config.elevenLabsAgentIdProd = process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID_PROD;
     }
     if (process.env.EXPO_PUBLIC_SERVER_URL && config.serverUrl !== process.env.EXPO_PUBLIC_SERVER_URL) {
-        console.log('[loadAppConfig] Override serverUrl from EXPO_PUBLIC_SERVER_URL');
+        log.debug('[loadAppConfig] Override serverUrl from EXPO_PUBLIC_SERVER_URL');
         config.serverUrl = process.env.EXPO_PUBLIC_SERVER_URL;
     }
 

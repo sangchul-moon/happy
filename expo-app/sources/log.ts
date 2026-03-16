@@ -1,29 +1,63 @@
 /**
- * Simple logging mechanism that writes to console and maintains internal array
- * Keeps last 5k records in memory with change notifications for UI updates
+ * Conditional logging mechanism with in-memory buffer for dev UI
+ * - debug(): Only prints to console when debugEnabled is true, always stores in buffer
+ * - warn()/error(): Always prints to console and stores in buffer
+ * - Toggle debug mode via setDebug() or the dev settings page
  */
 class Logger {
     private logs: string[] = [];
     private maxLogs = 5000;
     private listeners: Array<() => void> = [];
+    private debugEnabled = false;
 
     /**
-     * Log a message - writes to both console and internal array
+     * Store message in buffer, only print to console when debug is enabled
+     */
+    debug(...args: unknown[]): void {
+        const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+        this.addToBuffer(`[DEBUG] ${message}`);
+        if (this.debugEnabled) {
+            console.log(...args);
+        }
+    }
+
+    /**
+     * Backward-compatible alias for debug()
      */
     log(message: string): void {
-        // Add to internal array
-        this.logs.push(message);
-        
-        // Maintain 5k limit with circular buffer
-        if (this.logs.length > this.maxLogs) {
-            this.logs.shift();
-        }
-        
-        // Write to console
-        console.log(message);
-        
-        // Notify listeners for real-time updates
-        this.listeners.forEach(listener => listener());
+        this.debug(message);
+    }
+
+    /**
+     * Always prints to console - use for important warnings
+     */
+    warn(...args: unknown[]): void {
+        const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+        this.addToBuffer(`[WARN] ${message}`);
+        console.warn(...args);
+    }
+
+    /**
+     * Always prints to console - use for errors
+     */
+    error(...args: unknown[]): void {
+        const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+        this.addToBuffer(`[ERROR] ${message}`);
+        console.error(...args);
+    }
+
+    /**
+     * Enable or disable console output for debug logs
+     */
+    setDebug(enabled: boolean): void {
+        this.debugEnabled = enabled;
+    }
+
+    /**
+     * Check if debug mode is enabled
+     */
+    isDebugEnabled(): boolean {
+        return this.debugEnabled;
     }
 
     /**
@@ -59,6 +93,14 @@ class Logger {
      */
     getCount(): number {
         return this.logs.length;
+    }
+
+    private addToBuffer(message: string): void {
+        this.logs.push(message);
+        if (this.logs.length > this.maxLogs) {
+            this.logs.shift();
+        }
+        this.listeners.forEach(listener => listener());
     }
 }
 

@@ -25,7 +25,11 @@ export function useDemoMessages(messages: Message[]) {
                     messages: sortedMessages,
                     messagesMap: messagesMap,
                     reducerState: createReducer(),
-                    isLoaded: true
+                    isLoaded: true,
+                    hasMore: false,
+                    minSeq: null,
+                    maxSeq: null,
+                    isLoadingMore: false
                 }
             }
         }));

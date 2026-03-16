@@ -116,9 +116,9 @@ const NavigationHeaderComponent: React.FC<NativeStackHeaderProps> = React.memo((
         const state = navigation.getState();
         const currentIndex = state?.index ?? 0;
 
-        // Hide back button if we're at the first or second screen in the stack
-        // In tablet mode, index 0 is the empty screen, index 1 is the first real screen
-        return currentIndex <= 1;
+        // Hide back button only on the root screen (index 0) on tablet
+        // index 1+ means we navigated deeper and should show back button
+        return currentIndex === 0;
     }, [isTablet, navigation]);
 
     // Extract title - handle both string and function types

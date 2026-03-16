@@ -9,6 +9,7 @@ import { zhHans } from './translations/zh-Hans';
 import { ja } from './translations/ja';
 import * as Localization from 'expo-localization';
 import { loadSettings } from '@/sync/persistence';
+import { log } from '@/log';
 import { type SupportedLanguage, SUPPORTED_LANGUAGES, SUPPORTED_LANGUAGE_CODES, DEFAULT_LANGUAGE } from './_all';
 
 /**
@@ -98,13 +99,13 @@ let found = false;
 if (settings.settings.preferredLanguage && settings.settings.preferredLanguage in translations) {
     currentLanguage = settings.settings.preferredLanguage as SupportedLanguage;
     found = true;
-    console.log(`[i18n] Using preferred language: ${currentLanguage}`);
+    log.debug(`[i18n] Using preferred language: ${currentLanguage}`);
 }
 
 // Read from device
 if (!found) {
     let locales = Localization.getLocales();
-    console.log(`[i18n] Device locales:`, locales.map(l => l.languageCode));
+    log.debug(`[i18n] Device locales:`, locales.map(l => l.languageCode));
     for (let l of locales) {
         if (l.languageCode) {
             // Expo added special handling for Chinese variants using script code https://github.com/expo/expo/pull/34984
@@ -118,30 +119,30 @@ if (!found) {
                 //     chineseVariant = 'zh-Hant';
                 }
                 
-                console.log(`[i18n] Chinese script code: ${l.languageScriptCode} -> ${chineseVariant}`);
+                log.debug(`[i18n] Chinese script code: ${l.languageScriptCode} -> ${chineseVariant}`);
                 
                 if (chineseVariant && chineseVariant in translations) {
                     currentLanguage = chineseVariant as SupportedLanguage;
-                    console.log(`[i18n] Using Chinese variant: ${currentLanguage}`);
+                    log.debug(`[i18n] Using Chinese variant: ${currentLanguage}`);
                     break;
                 }
                 
                 currentLanguage = 'zh-Hans';
-                console.log(`[i18n] Falling back to simplified Chinese: zh-Hans`);
+                log.debug(`[i18n] Falling back to simplified Chinese: zh-Hans`);
                 break;
             }
             
             // Direct match for non-Chinese languages
             if (l.languageCode in translations) {
                 currentLanguage = l.languageCode as SupportedLanguage;
-                console.log(`[i18n] Using device locale: ${currentLanguage}`);
+                log.debug(`[i18n] Using device locale: ${currentLanguage}`);
                 break;
             }
         }
     }
 }
 
-console.log(`[i18n] Final language: ${currentLanguage}`);
+log.debug(`[i18n] Final language: ${currentLanguage}`);
 
 /**
  * Main translation function with strict typing
@@ -179,7 +180,7 @@ export function t<K extends TranslationKey>(
         for (const k of keys) {
             value = value[k];
             if (value === undefined) {
-                console.warn(`Translation missing: ${key}`);
+                log.warn(`Translation missing: ${key}`);
                 return key;
             }
         }
@@ -196,10 +197,10 @@ export function t<K extends TranslationKey>(
         }
 
         // Fallback for unexpected types
-        console.warn(`Invalid translation value type for key: ${key}`);
+        log.warn(`Invalid translation value type for key: ${key}`);
         return key;
     } catch (error) {
-        console.error(`Translation error for key: ${key}`, error);
+        log.error(`Translation error for key: ${key}`, error);
         return key;
     }
 }

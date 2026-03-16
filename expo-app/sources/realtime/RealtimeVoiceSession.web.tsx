@@ -5,6 +5,7 @@ import { storage } from '@/sync/storage';
 import { realtimeClientTools } from './realtimeClientTools';
 import { getElevenLabsCodeFromPreference } from '@/constants/Languages';
 import type { VoiceSession, VoiceSessionConfig } from './types';
+import { log } from '@/log';
 
 // Static reference to the conversation hook instance
 let conversationInstance: ReturnType<typeof useConversation> | null = null;
@@ -13,9 +14,9 @@ let conversationInstance: ReturnType<typeof useConversation> | null = null;
 class RealtimeVoiceSessionImpl implements VoiceSession {
 
     async startSession(config: VoiceSessionConfig): Promise<void> {
-        console.log('[RealtimeVoiceSessionImpl] conversationInstance:', conversationInstance);
+        log.debug('[RealtimeVoiceSessionImpl] conversationInstance:', conversationInstance);
         if (!conversationInstance) {
-            console.warn('Realtime voice session not initialized - conversationInstance is null');
+            log.warn('Realtime voice session not initialized - conversationInstance is null');
             return;
         }
 
@@ -26,7 +27,7 @@ class RealtimeVoiceSessionImpl implements VoiceSession {
             try {
                 await navigator.mediaDevices.getUserMedia({ audio: true });
             } catch (error) {
-                console.error('Failed to get microphone permission:', error);
+                log.error('Failed to get microphone permission:', error);
                 storage.getState().setRealtimeStatus('error');
                 return;
             }
@@ -55,9 +56,9 @@ class RealtimeVoiceSessionImpl implements VoiceSession {
             
             const conversationId = await conversationInstance.startSession(sessionConfig);
 
-            console.log('Started conversation with ID:', conversationId);
+            log.debug('Started conversation with ID:', conversationId);
         } catch (error) {
-            console.error('Failed to start realtime session:', error);
+            log.error('Failed to start realtime session:', error);
             storage.getState().setRealtimeStatus('error');
         }
     }
@@ -71,13 +72,13 @@ class RealtimeVoiceSessionImpl implements VoiceSession {
             await conversationInstance.endSession();
             storage.getState().setRealtimeStatus('disconnected');
         } catch (error) {
-            console.error('Failed to end realtime session:', error);
+            log.error('Failed to end realtime session:', error);
         }
     }
 
     sendTextMessage(message: string): void {
         if (!conversationInstance) {
-            console.warn('Realtime voice session not initialized');
+            log.warn('Realtime voice session not initialized');
             return;
         }
 
@@ -86,7 +87,7 @@ class RealtimeVoiceSessionImpl implements VoiceSession {
 
     sendContextualUpdate(update: string): void {
         if (!conversationInstance) {
-            console.warn('Realtime voice session not initialized');
+            log.warn('Realtime voice session not initialized');
             return;
         }
 
@@ -98,33 +99,33 @@ export const RealtimeVoiceSession: React.FC = () => {
     const conversation = useConversation({
         clientTools: realtimeClientTools,
         onConnect: () => {
-            console.log('Realtime session connected');
+            log.debug('Realtime session connected');
             storage.getState().setRealtimeStatus('connected');
             storage.getState().setRealtimeMode('idle');
         },
         onDisconnect: () => {
-            console.log('Realtime session disconnected');
+            log.debug('Realtime session disconnected');
             storage.getState().setRealtimeStatus('disconnected');
             storage.getState().setRealtimeMode('idle', true); // immediate mode change
             storage.getState().clearRealtimeModeDebounce();
         },
         onMessage: (data) => {
-            console.log('Realtime message:', data);
+            log.debug('Realtime message:', data);
         },
         onError: (error) => {
             // Log but don't block app - voice features will be unavailable
             // This prevents initialization errors from showing "Terminals error" on startup
-            console.warn('Realtime voice not available:', error);
+            log.warn('Realtime voice not available:', error);
             // Don't set error status during initialization - just set disconnected
             // This allows the app to continue working without voice features
             storage.getState().setRealtimeStatus('disconnected');
             storage.getState().setRealtimeMode('idle', true); // immediate mode change
         },
         onStatusChange: (data) => {
-            console.log('Realtime status change:', data);
+            log.debug('Realtime status change:', data);
         },
         onModeChange: (data) => {
-            console.log('Realtime mode change:', data);
+            log.debug('Realtime mode change:', data);
             
             // Only animate when speaking
             const mode = data.mode as string;
@@ -134,7 +135,7 @@ export const RealtimeVoiceSession: React.FC = () => {
             storage.getState().setRealtimeMode(isSpeaking ? 'speaking' : 'idle');
         },
         onDebug: (message) => {
-            console.debug('Realtime debug:', message);
+            log.debug('Realtime debug:', message);
         }
     });
 
@@ -142,18 +143,18 @@ export const RealtimeVoiceSession: React.FC = () => {
 
     useEffect(() => {
         // Store the conversation instance globally
-        console.log('[RealtimeVoiceSession] Setting conversationInstance:', conversation);
+        log.debug('[RealtimeVoiceSession] Setting conversationInstance:', conversation);
         conversationInstance = conversation;
 
         // Register the voice session once
         if (!hasRegistered.current) {
             try {
-                console.log('[RealtimeVoiceSession] Registering voice session');
+                log.debug('[RealtimeVoiceSession] Registering voice session');
                 registerVoiceSession(new RealtimeVoiceSessionImpl());
                 hasRegistered.current = true;
-                console.log('[RealtimeVoiceSession] Voice session registered successfully');
+                log.debug('[RealtimeVoiceSession] Voice session registered successfully');
             } catch (error) {
-                console.error('Failed to register voice session:', error);
+                log.error('Failed to register voice session:', error);
             }
         }
 

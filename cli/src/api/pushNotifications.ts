@@ -1,4 +1,5 @@
 import axios from 'axios'
+import path from 'path'
 import { logger } from '@/ui/logger'
 import { Expo, ExpoPushMessage } from 'expo-server-sdk'
 
@@ -8,6 +9,9 @@ export interface PushToken {
     createdAt: number
     updatedAt: number
 }
+
+/** Push notification types for iOS notification categories */
+export type PushType = 'ready' | 'permission_request' | 'general'
 
 
 export class PushNotificationClient {
@@ -70,51 +74,16 @@ export class PushNotificationClient {
             return
         }
 
-        // Create chunks to respect Expo's rate limits
-        const chunks = this.expo.chunkPushNotifications(validMessages)
-
-        for (const chunk of chunks) {
-            // Retry with exponential backoff for 5 minutes
-            const startTime = Date.now()
-            const timeout = 300000 // 5 minutes
-            let attempt = 0
-            
-            while (true) {
-                try {
-                    const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk)
-                    
-                    // Log any errors but don't throw
-                    const errors = ticketChunk.filter(ticket => ticket.status === 'error')
-                    if (errors.length > 0) {
-                        const errorDetails = errors.map(e => ({ message: e.message, details: e.details }))
-                        logger.debug('[PUSH] Some notifications failed:', errorDetails)
-                    }
-                    
-                    // If all notifications failed, throw to trigger retry
-                    if (errors.length === ticketChunk.length) {
-                        throw new Error('All push notifications in chunk failed')
-                    }
-                    
-                    // Success - break out of retry loop
-                    break
-                } catch (error) {
-                    const elapsed = Date.now() - startTime
-                    if (elapsed >= timeout) {
-                        logger.debug('[PUSH] Timeout reached after 5 minutes, giving up on chunk')
-                        break
-                    }
-                    
-                    // Calculate exponential backoff delay
-                    attempt++
-                    const delay = Math.min(1000 * Math.pow(2, attempt), 30000) // Max 30 seconds between retries
-                    const remainingTime = timeout - elapsed
-                    const waitTime = Math.min(delay, remainingTime)
-                    
-                    if (waitTime > 0) {
-                        logger.debug(`[PUSH] Retrying in ${waitTime}ms (attempt ${attempt})`)
-                        await new Promise(resolve => setTimeout(resolve, waitTime))
-                    }
+        // Send each message individually to avoid cross-project token conflicts
+        for (const message of validMessages) {
+            try {
+                const ticketChunk = await this.expo.sendPushNotificationsAsync([message])
+                const ticket = ticketChunk[0]
+                if (ticket.status === 'error') {
+                    logger.debug(`[PUSH] Notification failed for token: ${JSON.stringify({ message: ticket.message, details: ticket.details })}`)
                 }
+            } catch (error) {
+                logger.debug('[PUSH] Send error:', error instanceof Error ? error.message : error)
             }
         }
 
@@ -128,46 +97,96 @@ export class PushNotificationClient {
      * @param data - Additional data to send with the notification
      */
     sendToAllDevices(title: string, body: string, data?: Record<string, any>): void {
+        this.sendToAllDevicesAsync(title, body, data).catch(() => {})
+    }
+
+    async sendToAllDevicesAsync(title: string, body: string, data?: Record<string, any>): Promise<void> {
         logger.debug(`[PUSH] sendToAllDevices called with title: "${title}", body: "${body}"`);
-        
-        // Execute async operations without awaiting
-        (async () => {
-            try {
-                // Fetch all push tokens
-                logger.debug('[PUSH] Fetching push tokens...')
-                const tokens = await this.fetchPushTokens()
-                logger.debug(`[PUSH] Fetched ${tokens.length} push tokens`)
-                
-                // Log token details for debugging
-                tokens.forEach((token, index) => {
-                    logger.debug(`[PUSH] Using token ${index + 1}: id=${token.id}`)
-                })
 
-                if (tokens.length === 0) {
-                    logger.debug('No push tokens found for user')
-                    return
-                }
+        try {
+            // Fetch all push tokens
+            logger.debug('[PUSH] Fetching push tokens...')
+            const tokens = await this.fetchPushTokens()
+            logger.debug(`[PUSH] Fetched ${tokens.length} push tokens`)
 
-                // Create messages for all tokens
-                const messages: ExpoPushMessage[] = tokens.map((token, index) => {
-                    logger.debug(`[PUSH] Creating message ${index + 1} for token`)
-                    return {
-                        to: token.token,
-                        title,
-                        body,
-                        data,
-                        sound: 'default',
-                        priority: 'high'
-                    }
-                })
+            // Log token details for debugging
+            tokens.forEach((token, index) => {
+                logger.debug(`[PUSH] Using token ${index + 1}: id=${token.id}`)
+            })
 
-                // Send notifications
-                logger.debug(`[PUSH] Sending ${messages.length} push notifications...`)
-                await this.sendPushNotifications(messages)
-                logger.debug('[PUSH] Push notifications sent successfully')
-            } catch (error) {
-                logger.debug('[PUSH] Error sending to all devices:', error)
+            if (tokens.length === 0) {
+                logger.debug('No push tokens found for user')
+                return
             }
-        })()
+
+            // Resolve iOS notification category from push type (matches categories registered in the app)
+            const pushType = data?.type as PushType | undefined
+            const categoryId = (pushType === 'permission_request' || pushType === 'ready') ? pushType : undefined
+
+            logger.debug(`[PUSH] pushType=${pushType}, categoryId=${categoryId}`)
+
+            // Create messages for all tokens
+            const messages: ExpoPushMessage[] = tokens.map((token, index) => {
+                logger.debug(`[PUSH] Creating message ${index + 1} for token`)
+                return {
+                    to: token.token,
+                    title,
+                    body,
+                    data,
+                    sound: 'default',
+                    priority: 'high',
+                    ...(categoryId && { categoryId })
+                }
+            })
+
+            // Send notifications
+            logger.debug(`[PUSH] Sending ${messages.length} push notifications...`)
+            await this.sendPushNotifications(messages)
+            logger.debug('[PUSH] Push notifications sent successfully')
+        } catch (error) {
+            logger.debug('[PUSH] Error sending to all devices:', error)
+        }
+    }
+
+    /**
+     * Extract a short project name from a working directory path.
+     * e.g. /Users/user/Projects/my-app → my-app
+     */
+    static projectName(cwd: string): string {
+        return path.basename(cwd)
+    }
+
+    /**
+     * Extract a human-readable detail string from permission tool input.
+     * Shows file paths for file ops, commands for bash, etc.
+     */
+    static permissionDetail(toolName: string, input: unknown): string | null {
+        if (!input || typeof input !== 'object') return null
+        const obj = input as Record<string, unknown>
+
+        // File operations - show the file path (basename only for brevity)
+        if (['Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(toolName)) {
+            const filePath = (obj.file_path || obj.filePath || obj.path) as string | undefined
+            return filePath ? path.basename(filePath) : null
+        }
+
+        // Bash - show the command (truncated)
+        if (toolName === 'Bash') {
+            const cmd = (obj.command || obj.cmd) as string | undefined
+            if (!cmd) return null
+            const firstLine = cmd.split('\n')[0]
+            return firstLine.length > 60 ? firstLine.substring(0, 57) + '...' : firstLine
+        }
+
+        // Web tools
+        if (toolName === 'WebFetch') return (obj.url as string) || null
+        if (toolName === 'WebSearch') return (obj.query as string) || null
+
+        // Search tools
+        if (['Glob', 'Grep'].includes(toolName)) {
+            return (obj.pattern as string) || null
+        }
+
+        return null
     }
 }

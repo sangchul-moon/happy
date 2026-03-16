@@ -684,8 +684,8 @@ ${chalk.bold('Examples:')}
     // Use custom title or default to "Happy"
     const notificationTitle = title || 'Happy'
 
-    // Send the push notification
-    api.push().sendToAllDevices(
+    // Send the push notification and wait for completion
+    await api.push().sendToAllDevicesAsync(
       notificationTitle,
       message,
       {
@@ -698,9 +698,6 @@ ${chalk.bold('Examples:')}
     console.log(chalk.gray(`  Title: ${notificationTitle}`))
     console.log(chalk.gray(`  Message: ${message}`))
     console.log(chalk.gray('  Check your mobile device for the notification.'))
-
-    // Give a moment for the async operation to start
-    await new Promise(resolve => setTimeout(resolve, 1000))
 
   } catch (error) {
     console.error(chalk.red('✗ Failed to send push notification'))

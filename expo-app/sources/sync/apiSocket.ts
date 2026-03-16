@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { TokenStorage } from '@/auth/tokenStorage';
 import { Encryption } from './encryption/encryption';
+import { log } from '@/log';
 
 //
 // Types

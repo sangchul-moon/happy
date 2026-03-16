@@ -7,6 +7,7 @@ import { ReasoningProcessor } from './utils/reasoningProcessor';
 import { DiffProcessor } from './utils/diffProcessor';
 import { randomUUID } from 'node:crypto';
 import { logger } from '@/ui/logger';
+import { PushNotificationClient } from '@/api/pushNotifications';
 import { Credentials, readSettings } from '@/persistence';
 import { initialMachineMetadata } from '@/daemon/run';
 import { configuration } from '@/configuration';
@@ -198,10 +199,11 @@ export async function runCodex(opts: {
     const sendReady = () => {
         session.sendSessionEvent({ type: 'ready' });
         try {
+            const project = PushNotificationClient.projectName(process.cwd());
             api.push().sendToAllDevices(
-                "It's ready!",
-                'Codex is waiting for your command',
-                { sessionId: session.sessionId }
+                `${project}`,
+                'Codex is ready for your command',
+                { sessionId: session.sessionId, type: 'ready' }
             );
         } catch (pushError) {
             logger.debug('[Codex] Failed to send ready push', pushError);

@@ -11,6 +11,7 @@ import { t } from '@/text';
 import { layout } from '@/components/layout';
 import { sync } from '@/sync/sync';
 import { FAB } from '@/components/FAB';
+import { log } from '@/log';
 // Date formatting
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -129,8 +130,8 @@ export default function ArtifactsScreen() {
     
     // Fetch artifacts on mount
     React.useEffect(() => {
-        console.log('📱 ArtifactsScreen: Component mounted, fetching artifacts');
-        console.log(`📱 ArtifactsScreen: Current artifacts count: ${artifacts.length}`);
+        log.debug('📱 ArtifactsScreen: Component mounted, fetching artifacts');
+        log.debug(`📱 ArtifactsScreen: Current artifacts count: ${artifacts.length}`);
         let cancelled = false;
         
         (async () => {
@@ -138,35 +139,35 @@ export default function ArtifactsScreen() {
                 // Check if credentials are available
                 const credentials = sync.getCredentials();
                 if (!credentials) {
-                    console.log('📱 ArtifactsScreen: No credentials available, skipping fetch');
+                    log.debug('📱 ArtifactsScreen: No credentials available, skipping fetch');
                     return;
                 }
                 
                 setIsLoading(true);
-                console.log('📱 ArtifactsScreen: Calling sync.fetchArtifactsList()');
+                log.debug('📱 ArtifactsScreen: Calling sync.fetchArtifactsList()');
                 await sync.fetchArtifactsList();
-                console.log('📱 ArtifactsScreen: fetchArtifactsList completed');
+                log.debug('📱 ArtifactsScreen: fetchArtifactsList completed');
             } catch (error) {
-                console.error('📱 ArtifactsScreen: Failed to fetch artifacts:', error);
+                log.error('📱 ArtifactsScreen: Failed to fetch artifacts:', error);
             } finally {
                 if (!cancelled) {
                     setIsLoading(false);
-                    console.log('📱 ArtifactsScreen: Loading complete');
+                    log.debug('📱 ArtifactsScreen: Loading complete');
                 }
             }
         })();
         
         return () => {
             cancelled = true;
-            console.log('📱 ArtifactsScreen: Component unmounted');
+            log.debug('📱 ArtifactsScreen: Component unmounted');
         };
     }, []);
     
     // Log when artifacts change
     React.useEffect(() => {
-        console.log(`📱 ArtifactsScreen: Artifacts array updated, count: ${artifacts.length}`);
+        log.debug(`📱 ArtifactsScreen: Artifacts array updated, count: ${artifacts.length}`);
         if (artifacts.length > 0) {
-            console.log('📱 ArtifactsScreen: First artifact:', artifacts[0]);
+            log.debug('📱 ArtifactsScreen: First artifact:', artifacts[0]);
         }
     }, [artifacts]);
 

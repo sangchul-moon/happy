@@ -25,6 +25,7 @@ import {
 } from '@/sync/ops';
 import { Modal } from '@/modal';
 import { useFileUpload, UploadedFile } from '@/hooks/useFileUpload';
+import { log } from '@/log';
 
 // Input dialog component for file operations
 const InputDialog: React.FC<{
@@ -314,11 +315,11 @@ export function FileExplorerContent({ sessionId, onNavigate }: { sessionId: stri
     }, [sessionId, selectedFile, currentPath, loadDirectory]);
 
     const handleDelete = React.useCallback(async () => {
-        console.log('[handleDelete] Called, selectedFile:', selectedFile?.name, 'sessionId:', sessionId);
+        log.debug('[handleDelete] Called, selectedFile:', selectedFile?.name, 'sessionId:', sessionId);
         if (!selectedFile || !sessionId) return;
 
         setShowActionsMenu(false);
-        console.log('[handleDelete] Showing confirm dialog');
+        log.debug('[handleDelete] Showing confirm dialog');
 
         const confirmed = await Modal.confirm(
             t('files.deleteConfirmTitle'),
@@ -330,7 +331,7 @@ export function FileExplorerContent({ sessionId, onNavigate }: { sessionId: stri
             }
         );
 
-        console.log('[handleDelete] Confirm result:', confirmed);
+        log.debug('[handleDelete] Confirm result:', confirmed);
         if (!confirmed) {
             setSelectedFile(null);
             return;
@@ -338,9 +339,9 @@ export function FileExplorerContent({ sessionId, onNavigate }: { sessionId: stri
 
         setIsOperating(true);
         try {
-            console.log('[FileDelete] Deleting:', sessionId, selectedFile.fullPath);
+            log.debug('[FileDelete] Deleting:', sessionId, selectedFile.fullPath);
             const result = await sessionDeleteFile(sessionId, selectedFile.fullPath);
-            console.log('[FileDelete] Result:', result);
+            log.debug('[FileDelete] Result:', result);
 
             if (result.success) {
                 Modal.alert(t('files.deleteSuccess'), '');
@@ -607,7 +608,7 @@ export function FileExplorerContent({ sessionId, onNavigate }: { sessionId: stri
                         </Pressable>
                         <Pressable
                             onPress={() => {
-                                console.log('[Delete Button] Pressed');
+                                log.debug('[Delete Button] Pressed');
                                 handleDelete();
                             }}
                             style={{

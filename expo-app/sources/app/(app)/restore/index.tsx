@@ -107,13 +107,12 @@ export default function Restore() {
                         router.back();
                     }
                 } else if (!isCancelledRef.current) {
-                    Modal.alert(t('common.error'), t('errors.authenticationFailed'));
+                    Modal.alert(t('common.error'), 'QR auth returned no credentials (decrypt failed or cancelled)');
                 }
 
-            } catch (error) {
+            } catch (error: any) {
                 if (!isCancelledRef.current) {
-                    console.error('QR Auth error:', error);
-                    Modal.alert(t('common.error'), t('errors.authenticationFailed'));
+                    Modal.alert(t('common.error'), 'Auth flow error: ' + (error?.message || String(error)));
                 }
             } finally {
                 if (!isCancelledRef.current) {

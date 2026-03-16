@@ -27,6 +27,8 @@ import { StatusBarProvider } from '@/components/StatusBarProvider';
 import { monkeyPatchConsoleForRemoteLoggingForFasterAiAutoDebuggingOnlyInLocalBuilds } from '@/utils/remoteLogger';
 import { useUnistyles } from 'react-native-unistyles';
 import { AsyncLock } from '@/utils/lock';
+import { log } from '@/log';
+import { registerNotificationCategories, useNotificationHandler } from '@/hooks/useNotificationHandler';
 
 // Configure notification handler for foreground notifications
 Notifications.setNotificationHandler({
@@ -48,6 +50,9 @@ if (Platform.OS === 'android') {
         lightColor: '#FF231F7C',
     });
 }
+
+// Register iOS notification categories (Approve/Deny actions for permission requests)
+registerNotificationCategories();
 
 export {
     // Catch any errors thrown by the Layout component.
@@ -121,7 +126,7 @@ async function loadFonts() {
             });
         } else {
             // For Tauri, skip Font Face Observer as fonts are loaded via CSS
-            console.log('Do not wait for fonts to load');
+            log.debug('Do not wait for fonts to load');
             (async () => {
                 try {
                     await Fonts.loadAsync({
@@ -182,14 +187,14 @@ export default function RootLayout() {
                 await loadFonts();
                 await sodium.ready;
                 const credentials = await TokenStorage.getCredentials();
-                console.log('credentials', credentials);
+                log.debug('credentials', credentials);
                 if (credentials) {
                     await syncRestore(credentials);
                 }
 
                 setInitState({ credentials });
             } catch (error) {
-                console.error('Error initializing:', error);
+                log.error('Error initializing:', error);
             }
         })();
     }, []);
@@ -205,6 +210,9 @@ export default function RootLayout() {
 
     // Track the screens
     useTrackScreens()
+
+    // Handle notification taps and action buttons
+    useNotificationHandler()
 
     //
     // Not inited

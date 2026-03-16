@@ -11,6 +11,7 @@ import { useLocalSettingMutable, useSocketStatus } from '@/sync/storage';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { getServerUrl, setServerUrl, validateServerUrl } from '@/sync/serverConfig';
+import { log } from '@/log';
 import { Switch } from '@/components/Switch';
 import { useUnistyles } from 'react-native-unistyles';
 import { setLastViewedVersion, getLatestVersion } from '@/changelog';
@@ -18,7 +19,7 @@ import { setLastViewedVersion, getLatestVersion } from '@/changelog';
 export default function DevScreen() {
     const router = useRouter();
     const [debugMode, setDebugMode] = useLocalSettingMutable('debugMode');
-    const [verboseLogging, setVerboseLogging] = React.useState(false);
+    const [verboseLogging, setVerboseLogging] = React.useState(log.isDebugEnabled());
     const socketStatus = useSocketStatus();
     const anonymousId = sync.encryption!.anonID;
     const { theme } = useUnistyles();
@@ -153,7 +154,10 @@ export default function DevScreen() {
                     rightElement={
                         <Switch
                             value={verboseLogging}
-                            onValueChange={setVerboseLogging}
+                            onValueChange={(v) => {
+                                setVerboseLogging(v);
+                                log.setDebug(v);
+                            }}
                         />
                     }
                     showChevron={false}

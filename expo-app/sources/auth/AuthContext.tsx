@@ -5,6 +5,7 @@ import * as Updates from 'expo-updates';
 import { clearPersistence } from '@/sync/persistence';
 import { Platform } from 'react-native';
 import { trackLogout } from '@/track';
+import { log } from '@/log';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -26,14 +27,10 @@ export function AuthProvider({ children, initialCredentials }: { children: React
 
     const login = async (token: string, secret: string) => {
         const newCredentials: AuthCredentials = { token, secret };
-        const success = await TokenStorage.setCredentials(newCredentials);
-        if (success) {
-            await syncCreate(newCredentials);
-            setCredentials(newCredentials);
-            setIsAuthenticated(true);
-        } else {
-            throw new Error('Failed to save credentials');
-        }
+        await TokenStorage.setCredentials(newCredentials);
+        await syncCreate(newCredentials);
+        setCredentials(newCredentials);
+        setIsAuthenticated(true);
     };
 
     const logout = async () => {
@@ -52,7 +49,7 @@ export function AuthProvider({ children, initialCredentials }: { children: React
                 await Updates.reloadAsync();
             } catch (error) {
                 // In dev mode, reloadAsync will throw ERR_UPDATES_DISABLED
-                console.log('Reload failed (expected in dev mode):', error);
+                log.debug('Reload failed (expected in dev mode):', error);
             }
         }
     };

@@ -68,6 +68,7 @@ class Sync {
     private todosSync: InvalidateSync;
     private activityAccumulator: ActivityUpdateAccumulator;
     private pendingSettings: Partial<Settings> = loadPendingSettings();
+    private pendingLocalMessages: { sessionId: string; localId: string; content: RawRecord }[] = [];
     revenueCatInitialized = false;
 
     // Generic locking mechanism
@@ -183,7 +184,7 @@ class Sync {
         ]).then(() => {
             storage.getState().applyReady();
         }).catch((error) => {
-            console.error('Failed to load initial data:', error);
+            log.error('Failed to load initial data:', error);
         });
     }
 
@@ -212,14 +213,14 @@ class Sync {
         // Get encryption
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) { // Should never happen
-            console.error(`Session ${sessionId} not found`);
+            log.error(`Session ${sessionId} not found`);
             return;
         }
 
         // Get session data from storage
         const session = storage.getState().sessions[sessionId];
         if (!session) {
-            console.error(`Session ${sessionId} not found in storage`);
+            log.error(`Session ${sessionId} not found in storage`);
             return;
         }
 
@@ -278,10 +279,16 @@ class Sync {
         const encryptedRawRecord = await encryption.encryptRawRecord(content);
 
         // Add to messages - normalize the raw record
-        const createdAt = Date.now();
-        const normalizedMessage = normalizeRawMessage(localId, localId, createdAt, content);
-        if (normalizedMessage) {
-            this.applyMessages(sessionId, [normalizedMessage]);
+        // When session is actively thinking (mid-turn), defer local application
+        // to prevent message interleaving with the current turn's output
+        if (session.thinking) {
+            this.pendingLocalMessages.push({ sessionId, localId, content });
+        } else {
+            const createdAt = Date.now();
+            const normalizedMessage = normalizeRawMessage(localId, localId, createdAt, content);
+            if (normalizedMessage) {
+                this.applyMessages(sessionId, [normalizedMessage]);
+            }
         }
 
         const ready = await this.waitForAgentReady(sessionId);
@@ -447,7 +454,7 @@ class Sync {
                     const profile = await getUserProfile(this.credentials!, id);
                     return { id, profile };  // profile is null if 404
                 } catch (error) {
-                    console.error(`Failed to fetch user ${id}:`, error);
+                    log.error(`Failed to fetch user ${id}:`, error);
                     return { id, profile: null };  // Treat errors as 404
                 }
             })
@@ -505,7 +512,7 @@ class Sync {
             if (session.dataEncryptionKey) {
                 let decrypted = await this.encryption.decryptEncryptionKey(session.dataEncryptionKey);
                 if (!decrypted) {
-                    console.error(`Failed to decrypt data encryption key for session ${session.id}`);
+                    log.error(`Failed to decrypt data encryption key for session ${session.id}`);
                     continue;
                 }
                 sessionKeys.set(session.id, decrypted);
@@ -521,7 +528,7 @@ class Sync {
             // Get session encryption (should always exist after initialization)
             const sessionEncryption = this.encryption.getSessionEncryption(session.id);
             if (!sessionEncryption) {
-                console.error(`Session encryption not found for ${session.id} - this should never happen`);
+                log.error(`Session encryption not found for ${session.id} - this should never happen`);
                 continue;
             }
 
@@ -579,7 +586,7 @@ class Sync {
                     // Decrypt the data encryption key
                     const decryptedKey = await this.encryption.decryptEncryptionKey(artifact.dataEncryptionKey);
                     if (!decryptedKey) {
-                        console.error(`Failed to decrypt key for artifact ${artifact.id}`);
+                        log.error(`Failed to decrypt key for artifact ${artifact.id}`);
                         continue;
                     }
 
@@ -606,7 +613,7 @@ class Sync {
                         isDecrypted: !!header,
                     });
                 } catch (err) {
-                    console.error(`Failed to decrypt artifact ${artifact.id}:`, err);
+                    log.error(`Failed to decrypt artifact ${artifact.id}:`, err);
                     // Add with decryption failed flag
                     decryptedArtifacts.push({
                         id: artifact.id,
@@ -626,7 +633,7 @@ class Sync {
             log.log('📦 fetchArtifactsList: Artifacts applied to storage');
         } catch (error) {
             log.log(`📦 fetchArtifactsList: Error fetching artifacts: ${error}`);
-            console.error('Failed to fetch artifacts:', error);
+            log.error('Failed to fetch artifacts:', error);
             throw error;
         }
     }
@@ -640,7 +647,7 @@ class Sync {
             // Decrypt the data encryption key
             const decryptedKey = await this.encryption.decryptEncryptionKey(artifact.dataEncryptionKey);
             if (!decryptedKey) {
-                console.error(`Failed to decrypt key for artifact ${artifactId}`);
+                log.error(`Failed to decrypt key for artifact ${artifactId}`);
                 return null;
             }
 
@@ -668,7 +675,7 @@ class Sync {
                 isDecrypted: !!header,
             };
         } catch (error) {
-            console.error(`Failed to fetch artifact ${artifactId}:`, error);
+            log.error(`Failed to fetch artifact ${artifactId}:`, error);
             return null;
         }
     }
@@ -733,7 +740,7 @@ class Sync {
             
             return artifactId;
         } catch (error) {
-            console.error('Failed to create artifact:', error);
+            log.error('Failed to create artifact:', error);
             throw error;
         }
     }
@@ -835,7 +842,7 @@ class Sync {
             
             storage.getState().updateArtifact(updatedArtifact);
         } catch (error) {
-            console.error('Failed to update artifact:', error);
+            log.error('Failed to update artifact:', error);
             throw error;
         }
     }
@@ -843,7 +850,7 @@ class Sync {
     private fetchMachines = async () => {
         if (!this.credentials) return;
 
-        console.log('📊 Sync: Fetching machines...');
+        log.debug('📊 Sync: Fetching machines...');
         const API_ENDPOINT = getServerUrl();
         const response = await fetch(`${API_ENDPOINT}/v1/machines`, {
             headers: {
@@ -853,12 +860,12 @@ class Sync {
         });
 
         if (!response.ok) {
-            console.error(`Failed to fetch machines: ${response.status}`);
+            log.error(`Failed to fetch machines: ${response.status}`);
             return;
         }
 
         const data = await response.json();
-        console.log(`📊 Sync: Fetched ${Array.isArray(data) ? data.length : 0} machines from server`);
+        log.debug(`📊 Sync: Fetched ${Array.isArray(data) ? data.length : 0} machines from server`);
         const machines = data as Array<{
             id: string;
             metadata: string;
@@ -879,7 +886,7 @@ class Sync {
             if (machine.dataEncryptionKey) {
                 const decryptedKey = await this.encryption.decryptEncryptionKey(machine.dataEncryptionKey);
                 if (!decryptedKey) {
-                    console.error(`Failed to decrypt data encryption key for machine ${machine.id}`);
+                    log.error(`Failed to decrypt data encryption key for machine ${machine.id}`);
                     continue;
                 }
                 machineKeysMap.set(machine.id, decryptedKey);
@@ -899,7 +906,7 @@ class Sync {
             // Get machine-specific encryption (might exist from previous initialization)
             const machineEncryption = this.encryption.getMachineEncryption(machine.id);
             if (!machineEncryption) {
-                console.error(`Machine encryption not found for ${machine.id} - this should never happen`);
+                log.error(`Machine encryption not found for ${machine.id} - this should never happen`);
                 continue;
             }
 
@@ -927,7 +934,7 @@ class Sync {
                     daemonStateVersion: machine.daemonStateVersion || 0
                 });
             } catch (error) {
-                console.error(`Failed to decrypt machine ${machine.id}:`, error);
+                log.error(`Failed to decrypt machine ${machine.id}:`, error);
                 // Still add the machine with null metadata
                 decryptedMachines.push({
                     id: machine.id,
@@ -958,7 +965,7 @@ class Sync {
             storage.getState().applyFriends(friendsList);
             log.log(`👥 fetchFriends completed - processed ${friendsList.length} friends`);
         } catch (error) {
-            console.error('Failed to fetch friends:', error);
+            log.error('Failed to fetch friends:', error);
             // Silently handle error - UI will show appropriate state
         }
     }
@@ -1035,7 +1042,7 @@ class Sync {
                     }
                 }
             } catch (error) {
-                console.error(`Failed to process todo change for key ${change.key}:`, error);
+                log.error(`Failed to process todo change for key ${change.key}:`, error);
             }
         }
 
@@ -1130,7 +1137,7 @@ class Sync {
             storage.getState().applyFeedItems(compatibleItems);
             log.log(`📰 fetchFeed completed - loaded ${compatibleItems.length} compatible items (${allItems.length - compatibleItems.length} filtered)`);
         } catch (error) {
-            console.error('Failed to fetch feed:', error);
+            log.error('Failed to fetch feed:', error);
         }
     }
 
@@ -1189,7 +1196,7 @@ class Sync {
                     }
 
                     // Log and retry
-                    console.log('settings version-mismatch, retrying', {
+                    log.debug('settings version-mismatch, retrying', {
                         serverVersion: data.currentVersion,
                         retry: retryCount + 1,
                         pendingKeys: Object.keys(this.pendingSettings)
@@ -1231,7 +1238,7 @@ class Sync {
         }
 
         // Log
-        console.log('settings', JSON.stringify({
+        log.debug('settings', JSON.stringify({
             settings: parsedSettings,
             version: data.settingsVersion
         }));
@@ -1268,7 +1275,7 @@ class Sync {
         const parsedProfile = profileParse(data);
 
         // Log profile data for debugging
-        console.log('profile', JSON.stringify({
+        log.debug('profile', JSON.stringify({
             id: parsedProfile.id,
             timestamp: parsedProfile.timestamp,
             firstName: parsedProfile.firstName,
@@ -1314,12 +1321,12 @@ class Sync {
             });
 
             if (!response.ok) {
-                console.log(`[fetchNativeUpdate] Request failed: ${response.status}`);
+                log.debug(`[fetchNativeUpdate] Request failed: ${response.status}`);
                 return;
             }
 
             const data = await response.json();
-            console.log('[fetchNativeUpdate] Data:', data);
+            log.debug('[fetchNativeUpdate] Data:', data);
 
             // Apply update status to storage
             if (data.update_required && data.update_url) {
@@ -1333,7 +1340,7 @@ class Sync {
                 });
             }
         } catch (error) {
-            console.log('[fetchNativeUpdate] Error:', error);
+            log.debug('[fetchNativeUpdate] Error:', error);
             storage.getState().applyNativeUpdateStatus(null);
         }
     }
@@ -1354,7 +1361,7 @@ class Sync {
                 }
 
                 if (!apiKey) {
-                    console.log(`RevenueCat: No API key found for platform ${Platform.OS}`);
+                    log.debug(`RevenueCat: No API key found for platform ${Platform.OS}`);
                     return;
                 }
 
@@ -1371,7 +1378,7 @@ class Sync {
                 });
 
                 this.revenueCatInitialized = true;
-                console.log('RevenueCat initialized successfully');
+                log.debug('RevenueCat initialized successfully');
             }
 
             // Sync purchases
@@ -1384,68 +1391,124 @@ class Sync {
             storage.getState().applyPurchases(customerInfo);
 
         } catch (error) {
-            console.error('Failed to sync purchases:', error);
+            log.error('Failed to sync purchases:', error);
             // Don't throw - purchases are optional
         }
     }
 
     private fetchMessages = async (sessionId: string) => {
-        log.log(`💬 fetchMessages starting for session ${sessionId} - acquiring lock`);
+        log.log(`💬 fetchMessages starting for session ${sessionId}`);
 
-        // Get encryption - may not be ready yet if session was just created
-        // Throwing an error triggers backoff retry in InvalidateSync
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
             log.log(`💬 fetchMessages: Session encryption not ready for ${sessionId}, will retry`);
             throw new Error(`Session encryption not ready for ${sessionId}`);
         }
 
-        // Request
-        const response = await apiSocket.request(`/v1/sessions/${sessionId}/messages`);
-        const data = await response.json();
+        // Fetch only new messages using cursor (after maxSeq)
+        const existing = storage.getState().sessionMessages[sessionId];
+        const maxSeq = existing?.maxSeq;
+        const url = maxSeq !== null && maxSeq !== undefined
+            ? `/v1/sessions/${sessionId}/messages?after=${maxSeq}&limit=150`
+            : `/v1/sessions/${sessionId}/messages?limit=50`;
 
-        // Collect existing messages
-        let eixstingMessages = this.sessionReceivedMessages.get(sessionId);
-        if (!eixstingMessages) {
-            eixstingMessages = new Set<string>();
-            this.sessionReceivedMessages.set(sessionId, eixstingMessages);
+        const response = await apiSocket.request(url);
+        const data = await response.json() as { messages: ApiMessage[]; hasMore: boolean };
+
+        // Collect existing message IDs
+        let existingMessages = this.sessionReceivedMessages.get(sessionId);
+        if (!existingMessages) {
+            existingMessages = new Set<string>();
+            this.sessionReceivedMessages.set(sessionId, existingMessages);
         }
 
-        // Decrypt and normalize messages
-        let start = Date.now();
-        let normalizedMessages: NormalizedMessage[] = [];
-
-        // Filter out existing messages and prepare for batch decryption
+        // Filter and decrypt
+        const start = Date.now();
         const messagesToDecrypt: ApiMessage[] = [];
-        for (const msg of [...data.messages as ApiMessage[]].reverse()) {
-            if (!eixstingMessages.has(msg.id)) {
+        for (const msg of [...data.messages].reverse()) {
+            if (!existingMessages.has(msg.id)) {
                 messagesToDecrypt.push(msg);
             }
         }
 
-        // Batch decrypt all messages at once
         const decryptedMessages = await encryption.decryptMessages(messagesToDecrypt);
-
-        // Process decrypted messages
-        for (let i = 0; i < decryptedMessages.length; i++) {
-            const decrypted = decryptedMessages[i];
+        const normalizedMessages: NormalizedMessage[] = [];
+        for (const decrypted of decryptedMessages) {
             if (decrypted) {
-                eixstingMessages.add(decrypted.id);
-                // Normalize the decrypted message
-                let normalized = normalizeRawMessage(decrypted.id, decrypted.localId, decrypted.createdAt, decrypted.content);
-                if (normalized) {
-                    normalizedMessages.push(normalized);
-                }
+                existingMessages.add(decrypted.id);
+                const normalized = normalizeRawMessage(decrypted.id, decrypted.localId, decrypted.createdAt, decrypted.content);
+                if (normalized) normalizedMessages.push(normalized);
             }
         }
-        console.log('Batch decrypted and normalized messages in', Date.now() - start, 'ms');
-        console.log('normalizedMessages', JSON.stringify(normalizedMessages));
-        // console.log('messages', JSON.stringify(normalizedMessages));
+        log.debug('Batch decrypted messages in', Date.now() - start, 'ms');
 
-        // Apply to storage
+        // Track seq range from API response
+        let minSeq: number | null = null;
+        let maxSeqNew: number | null = null;
+        for (const msg of data.messages) {
+            if (minSeq === null || msg.seq < minSeq) minSeq = msg.seq;
+            if (maxSeqNew === null || msg.seq > maxSeqNew) maxSeqNew = msg.seq;
+        }
+
         this.applyMessages(sessionId, normalizedMessages);
         storage.getState().applyMessagesLoaded(sessionId);
+        storage.getState().applyMessagesPagination(sessionId, data.hasMore, minSeq, maxSeqNew);
         log.log(`💬 fetchMessages completed for session ${sessionId} - processed ${normalizedMessages.length} messages`);
+    }
+
+    /**
+     * Load older messages for a session (scroll-up pagination)
+     */
+    loadMoreMessages = async (sessionId: string): Promise<void> => {
+        const sessionData = storage.getState().sessionMessages[sessionId];
+        if (!sessionData || !sessionData.hasMore || sessionData.isLoadingMore) return;
+
+        const encryption = this.encryption.getSessionEncryption(sessionId);
+        if (!encryption) return;
+
+        storage.getState().setLoadingMore(sessionId, true);
+        try {
+            const url = sessionData.minSeq !== null
+                ? `/v1/sessions/${sessionId}/messages?before=${sessionData.minSeq}&limit=50`
+                : `/v1/sessions/${sessionId}/messages?limit=50`;
+
+            const response = await apiSocket.request(url);
+            const data = await response.json() as { messages: ApiMessage[]; hasMore: boolean };
+
+            let existingMessages = this.sessionReceivedMessages.get(sessionId);
+            if (!existingMessages) {
+                existingMessages = new Set<string>();
+                this.sessionReceivedMessages.set(sessionId, existingMessages);
+            }
+
+            const messagesToDecrypt: ApiMessage[] = [];
+            for (const msg of [...data.messages].reverse()) {
+                if (!existingMessages.has(msg.id)) {
+                    messagesToDecrypt.push(msg);
+                }
+            }
+
+            const decryptedMessages = await encryption.decryptMessages(messagesToDecrypt);
+            const normalizedMessages: NormalizedMessage[] = [];
+            for (const decrypted of decryptedMessages) {
+                if (decrypted) {
+                    existingMessages.add(decrypted.id);
+                    const normalized = normalizeRawMessage(decrypted.id, decrypted.localId, decrypted.createdAt, decrypted.content);
+                    if (normalized) normalizedMessages.push(normalized);
+                }
+            }
+
+            let minSeq: number | null = null;
+            for (const msg of data.messages) {
+                if (minSeq === null || msg.seq < minSeq) minSeq = msg.seq;
+            }
+
+            this.applyMessages(sessionId, normalizedMessages);
+            storage.getState().applyMessagesPagination(sessionId, data.hasMore, minSeq, null);
+            log.log(`���� loadMoreMessages completed for session ${sessionId} - loaded ${normalizedMessages.length} older messages`);
+        } finally {
+            storage.getState().setLoadingMore(sessionId, false);
+        }
     }
 
     private registerPushToken = async () => {
@@ -1467,7 +1530,7 @@ class Sync {
         log.log('finalStatus: ' + JSON.stringify(finalStatus));
 
         if (finalStatus !== 'granted') {
-            console.log('Failed to get push token for push notification!');
+            log.debug('Failed to get push token for push notification!');
             return;
         }
 
@@ -1515,22 +1578,22 @@ class Sync {
     }
 
     private handleUpdate = async (update: unknown) => {
-        console.log('🔄 Sync: handleUpdate called with:', JSON.stringify(update).substring(0, 300));
+        log.debug('🔄 Sync: handleUpdate called with:', JSON.stringify(update).substring(0, 300));
         const validatedUpdate = ApiUpdateContainerSchema.safeParse(update);
         if (!validatedUpdate.success) {
-            console.log('❌ Sync: Invalid update received:', validatedUpdate.error);
-            console.error('❌ Sync: Invalid update data:', update);
+            log.debug('❌ Sync: Invalid update received:', validatedUpdate.error);
+            log.error('❌ Sync: Invalid update data:', update);
             return;
         }
         const updateData = validatedUpdate.data;
-        console.log(`🔄 Sync: Validated update type: ${updateData.body.t}`);
+        log.debug(`🔄 Sync: Validated update type: ${updateData.body.t}`);
 
         if (updateData.body.t === 'new-message') {
 
             // Get encryption
             const encryption = this.encryption.getSessionEncryption(updateData.body.sid);
             if (!encryption) { // Should never happen
-                console.error(`Session ${updateData.body.sid} not found`);
+                log.error(`Session ${updateData.body.sid} not found`);
                 this.fetchSessions(); // Just fetch sessions again
                 return;
             }
@@ -1550,7 +1613,7 @@ class Sync {
                     
                     // Debug logging to trace lifecycle events
                     if (dataType === 'task_complete' || dataType === 'turn_aborted' || dataType === 'task_started') {
-                        console.log(`🔄 [Sync] Lifecycle event detected: contentType=${contentType}, dataType=${dataType}`);
+                        log.debug(`🔄 [Sync] Lifecycle event detected: contentType=${contentType}, dataType=${dataType}`);
                     }
                     
                     const isTaskComplete = 
@@ -1561,7 +1624,7 @@ class Sync {
                         ((contentType === 'acp' || contentType === 'codex') && dataType === 'task_started');
                     
                     if (isTaskComplete || isTaskStarted) {
-                        console.log(`🔄 [Sync] Updating thinking state: isTaskComplete=${isTaskComplete}, isTaskStarted=${isTaskStarted}`);
+                        log.debug(`🔄 [Sync] Updating thinking state: isTaskComplete=${isTaskComplete}, isTaskStarted=${isTaskStarted}`);
                     }
 
                     // Update session
@@ -1582,7 +1645,7 @@ class Sync {
 
                     // Update messages
                     if (lastMessage) {
-                        console.log('🔄 Sync: Applying message:', JSON.stringify(lastMessage));
+                        log.debug('🔄 Sync: Applying message:', JSON.stringify(lastMessage));
                         this.applyMessages(updateData.body.sid, [lastMessage]);
                         let hasMutableTool = false;
                         if (lastMessage.role === 'agent' && lastMessage.content[0] && lastMessage.content[0].type === 'tool-result') {
@@ -1624,7 +1687,7 @@ class Sync {
                 // Get session encryption
                 const sessionEncryption = this.encryption.getSessionEncryption(updateData.body.id);
                 if (!sessionEncryption) {
-                    console.error(`Session encryption not found for ${updateData.body.id} - this should never happen`);
+                    log.error(`Session encryption not found for ${updateData.body.id} - this should never happen`);
                     return;
                 }
 
@@ -1697,7 +1760,7 @@ class Sync {
                     // Version compatibility check
                     const settingsSchemaVersion = parsedSettings.schemaVersion ?? 1;
                     if (settingsSchemaVersion > SUPPORTED_SCHEMA_VERSION) {
-                        console.warn(
+                        log.warn(
                             `⚠️ Received settings schema v${settingsSchemaVersion}, ` +
                             `we support v${SUPPORTED_SCHEMA_VERSION}. Update app for full functionality.`
                         );
@@ -1706,7 +1769,7 @@ class Sync {
                     storage.getState().applySettings(parsedSettings, accountUpdate.settings.version);
                     log.log(`📋 Settings synced from server (schema v${settingsSchemaVersion}, version ${accountUpdate.settings.version})`);
                 } catch (error) {
-                    console.error('❌ Failed to process settings update:', error);
+                    log.error('❌ Failed to process settings update:', error);
                     // Don't crash on settings sync errors, just log
                 }
             }
@@ -1732,7 +1795,7 @@ class Sync {
             // Get machine-specific encryption (might not exist if machine wasn't initialized)
             const machineEncryption = this.encryption.getMachineEncryption(machineId);
             if (!machineEncryption) {
-                console.error(`Machine encryption not found for ${machineId} - cannot decrypt updates`);
+                log.error(`Machine encryption not found for ${machineId} - cannot decrypt updates`);
                 return;
             }
 
@@ -1744,7 +1807,7 @@ class Sync {
                     updatedMachine.metadata = metadata;
                     updatedMachine.metadataVersion = metadataUpdate.version;
                 } catch (error) {
-                    console.error(`Failed to decrypt machine metadata for ${machineId}:`, error);
+                    log.error(`Failed to decrypt machine metadata for ${machineId}:`, error);
                 }
             }
 
@@ -1756,7 +1819,7 @@ class Sync {
                     updatedMachine.daemonState = daemonState;
                     updatedMachine.daemonStateVersion = daemonStateUpdate.version;
                 } catch (error) {
-                    console.error(`Failed to decrypt machine daemonState for ${machineId}:`, error);
+                    log.error(`Failed to decrypt machine daemonState for ${machineId}:`, error);
                 }
             }
 
@@ -1790,7 +1853,7 @@ class Sync {
                 // Decrypt the data encryption key
                 const decryptedKey = await this.encryption.decryptEncryptionKey(artifactUpdate.dataEncryptionKey);
                 if (!decryptedKey) {
-                    console.error(`Failed to decrypt key for new artifact ${artifactId}`);
+                    log.error(`Failed to decrypt key for new artifact ${artifactId}`);
                     return;
                 }
                 
@@ -1826,7 +1889,7 @@ class Sync {
                 storage.getState().addArtifact(decryptedArtifact);
                 log.log(`📦 Added new artifact ${artifactId} to storage`);
             } catch (error) {
-                console.error(`Failed to process new artifact ${artifactId}:`, error);
+                log.error(`Failed to process new artifact ${artifactId}:`, error);
             }
         } else if (updateData.body.t === 'update-artifact') {
             log.log('📦 Received update-artifact update');
@@ -1836,7 +1899,7 @@ class Sync {
             // Get existing artifact
             const existingArtifact = storage.getState().artifacts[artifactId];
             if (!existingArtifact) {
-                console.error(`Artifact ${artifactId} not found in storage`);
+                log.error(`Artifact ${artifactId} not found in storage`);
                 // Fetch all artifacts to sync
                 this.artifactsSync.invalidate();
                 return;
@@ -1846,7 +1909,7 @@ class Sync {
                 // Get the data encryption key from memory
                 let dataEncryptionKey = this.artifactDataKeys.get(artifactId);
                 if (!dataEncryptionKey) {
-                    console.error(`Encryption key not found for artifact ${artifactId}, fetching artifacts`);
+                    log.error(`Encryption key not found for artifact ${artifactId}, fetching artifacts`);
                     this.artifactsSync.invalidate();
                     return;
                 }
@@ -1880,7 +1943,7 @@ class Sync {
                 storage.getState().updateArtifact(updatedArtifact);
                 log.log(`📦 Updated artifact ${artifactId} in storage`);
             } catch (error) {
-                console.error(`Failed to process artifact update ${artifactId}:`, error);
+                log.error(`Failed to process artifact update ${artifactId}:`, error);
             }
         } else if (updateData.body.t === 'delete-artifact') {
             log.log('📦 Received delete-artifact update');
@@ -1939,7 +2002,7 @@ class Sync {
                     try {
                         await this.applyTodoSocketUpdates(todoChanges);
                     } catch (error) {
-                        console.error('Failed to apply todo socket updates:', error);
+                        log.error('Failed to apply todo socket updates:', error);
                         // Fallback to refetch on error
                         this.todosSync.invalidate();
                     }
@@ -1968,7 +2031,7 @@ class Sync {
         }
 
         if (sessions.length > 0) {
-            // console.log('flushing activity updates ' + sessions.length);
+            // log.debug('flushing activity updates ' + sessions.length);
             this.applySessions(sessions);
             // log.log(`🔄 Activity updates flushed - updated ${sessions.length} sessions`);
         }
@@ -1977,17 +2040,17 @@ class Sync {
     private handleEphemeralUpdate = (update: unknown) => {
         const validatedUpdate = ApiEphemeralUpdateSchema.safeParse(update);
         if (!validatedUpdate.success) {
-            console.log('Invalid ephemeral update received:', validatedUpdate.error);
-            console.error('Invalid ephemeral update received:', update);
+            log.debug('Invalid ephemeral update received:', validatedUpdate.error);
+            log.error('Invalid ephemeral update received:', update);
             return;
         } else {
-            // console.log('Ephemeral update received:', update);
+            // log.debug('Ephemeral update received:', update);
         }
         const updateData = validatedUpdate.data;
 
         // Process activity updates through smart debounce accumulator
         if (updateData.type === 'activity') {
-            // console.log('adding activity update ' + updateData.id);
+            // log.debug('adding activity update ' + updateData.id);
             this.activityAccumulator.addUpdate(updateData);
         }
 
@@ -2036,6 +2099,26 @@ class Sync {
         storage.getState().applySessions(sessions);
         const newActive = storage.getState().getActiveSessions();
         this.applySessionDiff(active, newActive);
+
+        // Apply pending local messages when thinking turns off (turn boundary)
+        for (const s of sessions) {
+            if (s.thinking === false) {
+                this.flushPendingLocalMessages(s.id);
+            }
+        }
+    }
+
+    private flushPendingLocalMessages = (sessionId: string) => {
+        const pending = this.pendingLocalMessages.filter(m => m.sessionId === sessionId);
+        if (pending.length === 0) return;
+        this.pendingLocalMessages = this.pendingLocalMessages.filter(m => m.sessionId !== sessionId);
+        const createdAt = Date.now();
+        for (const msg of pending) {
+            const normalizedMessage = normalizeRawMessage(msg.localId, msg.localId, createdAt, msg.content);
+            if (normalizedMessage) {
+                this.applyMessages(sessionId, [normalizedMessage]);
+            }
+        }
     }
 
     private applySessionDiff = (active: Session[], newActive: Session[]) => {
@@ -2097,7 +2180,7 @@ export const sync = new Sync();
 let isInitialized = false;
 export async function syncCreate(credentials: AuthCredentials) {
     if (isInitialized) {
-        console.warn('Sync already initialized: ignoring');
+        log.warn('Sync already initialized: ignoring');
         return;
     }
     isInitialized = true;
@@ -2106,7 +2189,7 @@ export async function syncCreate(credentials: AuthCredentials) {
 
 export async function syncRestore(credentials: AuthCredentials) {
     if (isInitialized) {
-        console.warn('Sync already initialized: ignoring');
+        log.warn('Sync already initialized: ignoring');
         return;
     }
     isInitialized = true;

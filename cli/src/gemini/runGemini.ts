@@ -13,6 +13,7 @@ import os from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { ApiClient } from '@/api/api';
+import { PushNotificationClient } from '@/api/pushNotifications';
 import { logger } from '@/ui/logger';
 import { Credentials, readSettings } from '@/persistence';
 import { createSessionMetadata } from '@/utils/createSessionMetadata';
@@ -295,10 +296,11 @@ export async function runGemini(opts: {
   const sendReady = () => {
     session.sendSessionEvent({ type: 'ready' });
     try {
+      const project = PushNotificationClient.projectName(process.cwd());
       api.push().sendToAllDevices(
-        "It's ready!",
-        'Gemini is waiting for your command',
-        { sessionId: session.sessionId }
+        `${project}`,
+        'Gemini is ready for your command',
+        { sessionId: session.sessionId, type: 'ready' }
       );
     } catch (pushError) {
       logger.debug('[Gemini] Failed to send ready push', pushError);

@@ -21,6 +21,7 @@ import { isMutableTool } from "@/components/tools/knownTools";
 import { projectManager } from "./projectManager";
 import { DecryptedArtifact } from "./artifactTypes";
 import { FeedItem } from "./feedTypes";
+import { log } from '@/log';
 
 // Debounce timer for realtimeMode changes
 let realtimeModeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -51,6 +52,10 @@ interface SessionMessages {
     messagesMap: Record<string, Message>;
     reducerState: ReducerState;
     isLoaded: boolean;
+    hasMore: boolean;
+    minSeq: number | null;
+    maxSeq: number | null;
+    isLoadingMore: boolean;
 }
 
 // Machine type is now imported from storageTypes - represents persisted machine data
@@ -101,6 +106,8 @@ interface StorageState {
     applyReady: () => void;
     applyMessages: (sessionId: string, messages: NormalizedMessage[]) => { changed: string[], hasReadyEvent: boolean };
     applyMessagesLoaded: (sessionId: string) => void;
+    applyMessagesPagination: (sessionId: string, hasMore: boolean, minSeq: number | null, maxSeq: number | null) => void;
+    setLoadingMore: (sessionId: string, loading: boolean) => void;
     applySettings: (settings: Settings, version: number) => void;
     applySettingsLocal: (settings: Partial<Settings>) => void;
     applyLocalSettings: (settings: Partial<LocalSettings>) => void;
@@ -429,6 +436,7 @@ export const storage = create<StorageState>()((set, get) => {
                         .sort((a, b) => b.createdAt - a.createdAt);
 
                     updatedSessionMessages[session.id] = {
+                        ...existingSessionMessages,
                         messages: messagesArray,
                         messagesMap: mergedMessagesMap,
                         reducerState: existingSessionMessages.reducerState, // The reducer modifies state in-place, so this has the updates
@@ -488,7 +496,11 @@ export const storage = create<StorageState>()((set, get) => {
                     messages: [],
                     messagesMap: {},
                     reducerState: createReducer(),
-                    isLoaded: false
+                    isLoaded: false,
+                    hasMore: true,
+                    minSeq: null,
+                    maxSeq: null,
+                    isLoadingMore: false
                 };
 
                 // Get the session's agentState if available
@@ -613,7 +625,11 @@ export const storage = create<StorageState>()((set, get) => {
                             reducerState,
                             messages,
                             messagesMap,
-                            isLoaded: true
+                            isLoaded: true,
+                            hasMore: true,
+                            minSeq: null,
+                            maxSeq: null,
+                            isLoadingMore: false
                         } satisfies SessionMessages
                     }
                 };
@@ -631,6 +647,33 @@ export const storage = create<StorageState>()((set, get) => {
             }
 
             return result;
+        }),
+        applyMessagesPagination: (sessionId: string, hasMore: boolean, minSeq: number | null, maxSeq: number | null) => set((state) => {
+            const existing = state.sessionMessages[sessionId];
+            if (!existing) return state;
+            return {
+                ...state,
+                sessionMessages: {
+                    ...state.sessionMessages,
+                    [sessionId]: {
+                        ...existing,
+                        hasMore,
+                        minSeq: existing.minSeq === null ? minSeq : (minSeq !== null ? Math.min(existing.minSeq, minSeq) : existing.minSeq),
+                        maxSeq: existing.maxSeq === null ? maxSeq : (maxSeq !== null ? Math.max(existing.maxSeq, maxSeq) : existing.maxSeq)
+                    }
+                }
+            };
+        }),
+        setLoadingMore: (sessionId: string, loading: boolean) => set((state) => {
+            const existing = state.sessionMessages[sessionId];
+            if (!existing) return state;
+            return {
+                ...state,
+                sessionMessages: {
+                    ...state.sessionMessages,
+                    [sessionId]: { ...existing, isLoadingMore: loading }
+                }
+            };
         }),
         applySettingsLocal: (settings: Partial<Settings>) => set((state) => {
             saveSettings(applySettings(state.settings, settings), state.settingsVersion ?? 0);
@@ -882,12 +925,12 @@ export const storage = create<StorageState>()((set, get) => {
         }),
         // Artifact methods
         applyArtifacts: (artifacts: DecryptedArtifact[]) => set((state) => {
-            console.log(`🗂️ Storage.applyArtifacts: Applying ${artifacts.length} artifacts`);
+            log.debug(`🗂️ Storage.applyArtifacts: Applying ${artifacts.length} artifacts`);
             const mergedArtifacts = { ...state.artifacts };
             artifacts.forEach(artifact => {
                 mergedArtifacts[artifact.id] = artifact;
             });
-            console.log(`🗂️ Storage.applyArtifacts: Total artifacts after merge: ${Object.keys(mergedArtifacts).length}`);
+            log.debug(`🗂️ Storage.applyArtifacts: Total artifacts after merge: ${Object.keys(mergedArtifacts).length}`);
             
             return {
                 ...state,
@@ -1093,12 +1136,14 @@ export function useSession(id: string): Session | null {
 
 const emptyArray: unknown[] = [];
 
-export function useSessionMessages(sessionId: string): { messages: Message[], isLoaded: boolean } {
+export function useSessionMessages(sessionId: string): { messages: Message[], isLoaded: boolean, hasMore: boolean, isLoadingMore: boolean } {
     return storage(useShallow((state) => {
         const session = state.sessionMessages[sessionId];
         return {
             messages: session?.messages ?? emptyArray,
-            isLoaded: session?.isLoaded ?? false
+            isLoaded: session?.isLoaded ?? false,
+            hasMore: session?.hasMore ?? true,
+            isLoadingMore: session?.isLoadingMore ?? false
         };
     }));
 }

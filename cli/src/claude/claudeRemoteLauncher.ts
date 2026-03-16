@@ -15,6 +15,7 @@ import { EnhancedMode } from "./loop";
 import { RawJSONLines } from "@/claude/types";
 import { OutgoingMessageQueue } from "./utils/OutgoingMessageQueue";
 import { getToolName } from "./utils/getToolName";
+import { PushNotificationClient } from "@/api/pushNotifications";
 
 interface PermissionsField {
     date: number;
@@ -120,8 +121,23 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     // Handle messages
     let planModeToolCalls = new Set<string>();
     let ongoingToolCalls = new Map<string, { parentToolCallId: string | null }>();
+    let lastAssistantText = '';
 
     function onMessage(message: SDKMessage) {
+
+        // Track last assistant text for push notification context
+        if (message.type === 'assistant') {
+            const content = (message as SDKAssistantMessage).message.content;
+            if (Array.isArray(content)) {
+                const textParts = content.filter(c => c.type === 'text' && c.text).map(c => c.text!);
+                if (textParts.length > 0) {
+                    const full = textParts.join(' ').trim();
+                    // Take the last sentence/line for brevity
+                    const lastLine = full.split('\n').filter(l => l.trim()).pop() || full;
+                    lastAssistantText = lastLine.length > 100 ? lastLine.substring(0, 97) + '...' : lastLine;
+                }
+            }
+        }
 
         // Write to message log
         formatClaudeMessageForInk(message, messageBuffer);
@@ -384,10 +400,12 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                     onReady: () => {
                         if (!pending && session.queue.size() === 0) {
                             session.client.sendSessionEvent({ type: 'ready' });
+                            const project = PushNotificationClient.projectName(session.path);
+                            const body = lastAssistantText || 'Ready for your command';
                             session.api.push().sendToAllDevices(
-                                'It\'s ready!',
-                                `Claude is waiting for your command`,
-                                { sessionId: session.client.sessionId }
+                                `${project}`,
+                                body,
+                                { sessionId: session.client.sessionId, type: 'ready' }
                             );
                         }
                     },

@@ -22,6 +22,7 @@ import { t } from '@/text';
 import { Metadata } from '@/sync/storageTypes';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile } from '@/sync/profileUtils';
+import { log } from '@/log';
 
 interface AgentInputProps {
     value: string;
@@ -425,7 +426,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         } catch (error) {
             // Shake on error
             shakerRef.current?.shake();
-            console.error('Abort RPC call failed:', error);
+            log.error('Abort RPC call failed:', error);
         } finally {
             setIsAborting(false);
         }
@@ -1241,7 +1242,7 @@ function FileBrowserButton({ onPress }: { onPress?: () => void }) {
             })}
             hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
             onPress={() => {
-                console.log('[FileBrowserButton] Button pressed!');
+                log.debug('[FileBrowserButton] Button pressed!');
                 hapticsLight();
                 onPress();
             }}
