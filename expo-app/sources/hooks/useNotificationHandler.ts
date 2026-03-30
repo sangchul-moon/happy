@@ -5,7 +5,11 @@
  * 1. Tap on any push → navigate to the relevant session
  * 2. iOS "Approve" action on permission_request → approve via RPC
  * 3. iOS "Deny" action on permission_request → deny via RPC
- * 4. iOS "Reply" text input → send message to the session
+ * 4. iOS "Reply" text input on permission_request → deny with feedback
+ * 5. iOS "Reply" text input on ready → send message to session
+ *
+ * All action buttons use opensAppToForeground: false so the app stays
+ * in background. The handler waits for socket connection before sending RPC.
  */
 
 import * as React from 'react';
@@ -14,7 +18,30 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { sessionAllow, sessionDeny } from '@/sync/ops';
 import { sync } from '@/sync/sync';
+import { apiSocket } from '@/sync/apiSocket';
 import { log } from '@/log';
+
+/** Wait for the WebSocket to be connected, with a timeout.
+ *  onStatusChange fires immediately with current status, so this resolves
+ *  instantly if already connected. Also calls connect() to kick reconnect. */
+async function waitForSocket(timeoutMs: number = 5000): Promise<boolean> {
+    apiSocket.connect(); // no-op if already connected
+
+    return new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => {
+            unsubscribe();
+            resolve(false);
+        }, timeoutMs);
+
+        const unsubscribe = apiSocket.onStatusChange((status) => {
+            if (status === 'connected') {
+                clearTimeout(timeout);
+                unsubscribe();
+                resolve(true);
+            }
+        });
+    });
+}
 
 const REPLY_ACTION: Notifications.NotificationAction = {
     identifier: 'reply',
@@ -73,6 +100,15 @@ export function useNotificationHandler(): void {
             const userText = response.userText;
 
             log.log(`[notification] action=${actionId}, type=${pushType}, session=${sessionId}, request=${requestId}, text=${userText}`);
+
+            // For non-default actions (approve/deny/reply), ensure socket is connected
+            if (actionId !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
+                const connected = await waitForSocket();
+                if (!connected) {
+                    log.error('[notification] Socket not connected, cannot process action');
+                    return;
+                }
+            }
 
             // Handle reply text input
             if (actionId === 'reply' && sessionId && userText) {
