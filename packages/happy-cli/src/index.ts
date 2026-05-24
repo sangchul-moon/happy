@@ -33,7 +33,6 @@ import { execFileSync } from 'node:child_process'
 import { extractNoSandboxFlag } from './utils/sandboxFlags'
 import { handleResumeCommand } from '@/resume/handleResumeCommand'
 import { ensureDaemonRunning } from './daemon/ensureDaemonRunning'
-import { handleCodexCommand } from './commands/codexCommand'
 
 
 (async () => {
@@ -127,19 +126,6 @@ Conversation history is preserved on the server, but in-flight tool calls are in
   } else if (subcommand === 'resume') {
     try {
       await handleResumeCommand(args.slice(1));
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
-      if (process.env.DEBUG) {
-        console.error(error)
-      }
-      process.exit(1)
-    }
-    return;
-  } else if (subcommand === 'codex') {
-    // Handle codex command
-    try {
-      await handleCodexCommand(args.slice(1));
-      // Do not force exit here; allow instrumentation to show lingering handles
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
       if (process.env.DEBUG) {
@@ -677,7 +663,6 @@ ${chalk.bold('Usage:')}
   happy [options]         Start Claude with mobile control
   happy auth              Manage authentication
   happy resume            Resume a previous Happy session by Happy session ID
-  happy codex             Start Codex mode
   happy gemini            Start Gemini mode (ACP)
   happy acp               Start a generic ACP-compatible agent
   happy connect           Connect AI vendor API keys

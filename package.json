@@ -5,7 +5,6 @@
         "cli": "pnpm --filter happy cli",
         "release": "node ./scripts/release.cjs",
         "web": "pnpm --filter happy-app web",
-        "codium": "pnpm --filter codium dev",
         "app-logs": "pnpm --filter happy-app-logs start",
         "postinstall": "node ./scripts/postinstall.cjs",
         "env:new": "tsx environments/environments.ts new",
@@ -31,8 +30,7 @@
             "packages/happy-cli",
             "packages/happy-server",
             "packages/happy-wire",
-            "packages/happy-app-logs",
-            "packages/codium"
+            "packages/happy-app-logs"
         ]
     },
     "pnpm": {

@@ -11,9 +11,6 @@ import { TaskView } from './TaskView';
 import { BashViewFull } from './BashViewFull';
 import { EditViewFull } from './EditViewFull';
 import { MultiEditViewFull } from './MultiEditViewFull';
-import { CodexBashView } from './CodexBashView';
-import { CodexPatchView } from './CodexPatchView';
-import { CodexDiffView } from './CodexDiffView';
 import { AskUserQuestionView } from './AskUserQuestionView';
 import { GeminiEditView } from './GeminiEditView';
 import { GeminiExecuteView } from './GeminiExecuteView';
@@ -33,9 +30,6 @@ export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 export const toolViewRegistry: Record<string, ToolViewComponent> = {
     Edit: EditView,
     Bash: BashView,
-    CodexBash: CodexBashView,
-    CodexPatch: CodexPatchView,
-    CodexDiff: CodexDiffView,
     Write: WriteView,
     TodoWrite: TodoView,
     ExitPlanMode: ExitPlanToolView,
@@ -53,7 +47,6 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
 
 export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     Bash: BashViewFull,
-    CodexBash: CodexBashView,
     Edit: EditViewFull,
     MultiEdit: MultiEditViewFull,
     Task: TaskView,
@@ -73,9 +66,6 @@ export function getToolFullViewComponent(toolName: string): ToolViewComponent | 
 // Export individual components
 export { EditView } from './EditView';
 export { BashView } from './BashView';
-export { CodexBashView } from './CodexBashView';
-export { CodexPatchView } from './CodexPatchView';
-export { CodexDiffView } from './CodexDiffView';
 export { BashViewFull } from './BashViewFull';
 export { EditViewFull } from './EditViewFull';
 export { MultiEditViewFull } from './MultiEditViewFull';

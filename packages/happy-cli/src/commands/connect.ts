@@ -4,7 +4,6 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { readCredentials } from '@/persistence';
 import { ApiClient } from '@/api/api';
-import { authenticateCodex } from './connect/authenticateCodex';
 import { authenticateClaude } from './connect/authenticateClaude';
 import { authenticateGemini } from './connect/authenticateGemini';
 import { decodeJwtPayload } from './connect/utils';
@@ -27,9 +26,6 @@ export async function handleConnectCommand(args: string[]): Promise<void> {
     }
 
     switch (subcommand.toLowerCase()) {
-        case 'codex':
-            await handleConnectVendor('codex', 'OpenAI');
-            break;
         case 'claude':
             await handleConnectVendor('claude', 'Anthropic');
             break;
@@ -75,7 +71,7 @@ ${chalk.bold('Notes:')}
 `);
 }
 
-async function handleConnectVendor(vendor: 'codex' | 'claude' | 'gemini', displayName: string): Promise<void> {
+async function handleConnectVendor(vendor: 'claude' | 'gemini', displayName: string): Promise<void> {
     console.log(chalk.bold(`\n🔌 Connecting ${displayName} to Happy cloud\n`));
 
     // Check if authenticated
@@ -90,13 +86,7 @@ async function handleConnectVendor(vendor: 'codex' | 'claude' | 'gemini', displa
     const api = await ApiClient.create(credentials);
 
     // Handle vendor authentication
-    if (vendor === 'codex') {
-        console.log('🚀 Registering Codex token with server');
-        const codexAuthTokens = await authenticateCodex();
-        await api.registerVendorToken('openai', { oauth: codexAuthTokens });
-        console.log('✅ Codex token registered with server');
-        process.exit(0);
-    } else if (vendor === 'claude') {
+    if (vendor === 'claude') {
         console.log('🚀 Registering Anthropic token with server');
         const anthropicAuthTokens = await authenticateClaude();
         await api.registerVendorToken('anthropic', { oauth: anthropicAuthTokens });
