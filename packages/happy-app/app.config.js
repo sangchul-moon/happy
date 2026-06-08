@@ -1,4 +1,5 @@
-const { execFileSync } = require('node:child_process');
+import { execFileSync } from 'node:child_process';
+import withEinkCompatibility from './plugins/withEinkCompatibility.js';
 
 const variant = process.env.APP_ENV || 'development';
 const name = {
@@ -132,7 +133,7 @@ export default {
             favicon: "./sources/assets/images/favicon.png"
         },
         plugins: [
-            require("./plugins/withEinkCompatibility.js"),
+            withEinkCompatibility,
             [
                 "expo-router",
                 {

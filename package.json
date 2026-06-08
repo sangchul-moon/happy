@@ -37,7 +37,8 @@
         "overrides": {
             "whatwg-url": "14.2.0",
             "parse-path": "7.0.3",
-            "@types/parse-path": "7.0.3"
+            "@types/parse-path": "7.0.3",
+            "balanced-match": "1.0.2"
         },
         "onlyBuiltDependencies": [
             "@more-tech/react-native-libsodium",
