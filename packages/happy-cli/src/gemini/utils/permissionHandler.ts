@@ -52,17 +52,12 @@ export class GeminiPermissionHandler extends BasePermissionHandler {
      */
     private shouldAutoApprove(toolName: string, toolCallId: string, input: unknown): boolean {
         // Always auto-approve these tools regardless of permission mode:
-        // - change_title: Changing chat title is safe and should be automatic
         // - GeminiReasoning / CodexReasoning: Display of thinking process, not an action
         // - think / save_memory: Safe introspective operations
         //
         // Exact-match by tool name (no substring) to prevent bypass through
-        // crafted tool names like `change_title_and_run_command`. Include each
-        // legitimate naming variant explicitly (bare, MCP-qualified, etc).
+        // crafted tool names. Include each legitimate naming variant explicitly.
         const alwaysAutoApproveNames: ReadonlySet<string> = new Set([
-            'change_title',
-            'happy__change_title',
-            'mcp__happy__change_title',
             'GeminiReasoning',
             'CodexReasoning',
             'think',
@@ -70,15 +65,15 @@ export class GeminiPermissionHandler extends BasePermissionHandler {
         ]);
         // Tool-call IDs auto-approve when they exactly match one of these
         // values or start with `<name>-` (Gemini CLI format, e.g.
-        // `change_title-1765385846663`). Substring was a bypass vector.
-        const alwaysAutoApproveIdPrefixes: readonly string[] = ['change_title', 'save_memory'];
+        // `save_memory-1765385846663`). Substring was a bypass vector.
+        const alwaysAutoApproveIdPrefixes: readonly string[] = ['save_memory'];
 
         // Check by tool name
         if (alwaysAutoApproveNames.has(toolName)) {
             return true;
         }
 
-        // Check by toolCallId (Gemini CLI may send change_title as "other" but toolCallId is like "change_title-<timestamp>")
+        // Check by toolCallId prefix (e.g. "save_memory-<timestamp>")
         for (const prefix of alwaysAutoApproveIdPrefixes) {
             if (toolCallId === prefix || toolCallId.startsWith(`${prefix}-`)) {
                 return true;
@@ -116,7 +111,7 @@ export class GeminiPermissionHandler extends BasePermissionHandler {
         input: unknown
     ): Promise<PermissionResult> {
         // Check if we should auto-approve based on permission mode
-        // Pass toolCallId to check by ID (e.g., change_title-* even if toolName is "other")
+        // Pass toolCallId to check by ID prefix (e.g., save_memory-* even if toolName is "other")
         if (this.shouldAutoApprove(toolName, toolCallId, input)) {
             logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId}) in ${this.currentPermissionMode} mode`);
 

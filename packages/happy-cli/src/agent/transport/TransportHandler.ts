@@ -37,8 +37,6 @@ export interface StderrContext {
  * Context for tool name detection heuristics
  */
 export interface ToolNameContext {
-  /** Whether the recent prompt contained change_title instruction */
-  recentPromptHadChangeTitle: boolean;
   /** Number of tool calls since last prompt */
   toolCallCountSincePrompt: number;
 }
@@ -134,7 +132,7 @@ export interface TransportHandler {
   /**
    * Extract tool name from toolCallId.
    *
-   * Tool IDs often contain the tool name as a prefix (e.g., "change_title-123" -> "change_title").
+   * Tool IDs often contain the tool name as a prefix (e.g., "save_memory-123" -> "save_memory").
    * Uses getToolPatterns() to match known patterns.
    *
    * @param toolCallId - The tool call ID
@@ -148,7 +146,7 @@ export interface TransportHandler {
    * When the agent sends "other" or "Unknown tool", tries to determine the real name from:
    * 1. toolCallId patterns
    * 2. input parameters
-   * 3. Context (first tool call after change_title instruction)
+   * 3. Context (tool call patterns and input signatures)
    *
    * @param toolName - The initial tool name (may be "other" or "Unknown tool")
    * @param toolCallId - The tool call ID

@@ -6,7 +6,7 @@
  * - Long init timeout (Gemini CLI is slow on first start)
  * - Stdout filtering (removes debug output that breaks JSON-RPC)
  * - Stderr parsing (detects rate limits, 404 errors)
- * - Tool name patterns (change_title, save_memory, think)
+ * - Tool name patterns (save_memory, think)
  * - Investigation tool detection (codebase_investigator)
  *
  * @module GeminiTransport
@@ -56,12 +56,6 @@ interface ExtendedToolPattern extends ToolPattern {
 }
 
 const GEMINI_TOOL_PATTERNS: ExtendedToolPattern[] = [
-  {
-    name: 'change_title',
-    patterns: ['change_title', 'change-title', 'happy__change_title', 'mcp__happy__change_title'],
-    inputFields: ['title'],
-    emptyInputDefault: true, // change_title often has empty input (title extracted from context)
-  },
   {
     name: 'save_memory',
     patterns: ['save_memory', 'save-memory'],
@@ -232,7 +226,7 @@ export class GeminiTransport implements TransportHandler {
   /**
    * Extract tool name from toolCallId using Gemini patterns.
    *
-   * Tool IDs often contain the tool name as a prefix (e.g., "change_title-1765385846663" -> "change_title")
+   * Tool IDs often contain the tool name as a prefix (e.g., "save_memory-1765385846663" -> "save_memory")
    */
   extractToolNameFromId(toolCallId: string): string | null {
     const lowerId = toolCallId.toLowerCase();
@@ -264,7 +258,7 @@ export class GeminiTransport implements TransportHandler {
    * When Gemini sends "other" or "Unknown tool", tries to determine the real name from:
    * 1. toolCallId patterns (most reliable - tool name often embedded in ID)
    * 2. Input field signatures (specific fields indicate specific tools)
-   * 3. Empty input default (some tools like change_title have empty input)
+   * 3. Empty input default (some tools may have empty input)
    *
    * Context-based heuristics were removed as they were fragile and the above
    * methods cover all known cases.
@@ -281,7 +275,7 @@ export class GeminiTransport implements TransportHandler {
     }
 
     // 1. Check toolCallId for known tool names (most reliable)
-    // Tool IDs often contain the tool name: "change_title-123456" -> "change_title"
+    // Tool IDs often contain the tool name: "save_memory-123456" -> "save_memory"
     const idToolName = this.extractToolNameFromId(toolCallId);
     if (idToolName) {
       return idToolName;
@@ -305,7 +299,7 @@ export class GeminiTransport implements TransportHandler {
     }
 
     // 3. For empty input, use the default tool (if configured)
-    // This handles cases like change_title where the title is extracted from context
+    // This handles cases where the tool input is extracted from context
     if (this.isEmptyInput(input) && toolName === 'other') {
       const defaultTool = GEMINI_TOOL_PATTERNS.find((p) => p.emptyInputDefault);
       if (defaultTool) {

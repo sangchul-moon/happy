@@ -579,17 +579,6 @@ export const knownTools = {
             return t('tools.names.reasoning');
         }
     },
-    'change_title': {
-        title: 'Change Title',
-        icon: ICON_EDIT,
-        hidden: true,
-        minimal: true,
-        noStatus: true,
-        input: z.object({
-            title: z.string().optional().describe('New session title')
-        }).partial().passthrough(),
-        result: z.object({}).partial().passthrough()
-    },
     // Gemini internal tools - should be hidden (minimal)
     'search': {
         title: t('tools.names.search'),

@@ -15,7 +15,6 @@ import { getEnvironmentInfo } from '@/ui/doctor';
 import { configuration } from '@/configuration';
 import { notifyDaemonSessionStarted } from '@/daemon/controlClient';
 import { initialMachineMetadata } from '@/daemon/run';
-import { startHappyServer } from '@/claude/utils/startHappyServer';
 import { startHookServer } from '@/claude/utils/startHookServer';
 import { generateHookSettingsFile, cleanupHookSettingsFile } from '@/claude/utils/generateHookSettings';
 import { registerKillSessionHandler } from './registerKillSessionHandler';
@@ -341,10 +340,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             session.sendClaudeSessionMessage(raw);
         },
     });
-
-    // Start Happy MCP server
-    const happyServer = await startHappyServer(session);
-    logger.debug(`[START] Happy MCP server started at ${happyServer.url}`);
 
     // Variable to track current session instance (updated via onSessionReady callback)
     // Used by hook server to notify Session when Claude changes session ID
@@ -721,9 +716,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
                 await session.close();
             }
 
-            // Stop Happy MCP server
-            happyServer.stop();
-
             // Stop Hook server and cleanup settings file
             hookServer.stop();
             cleanupHookSettingsFile(hookSettingsPath);
@@ -770,7 +762,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         startingMode: options.startingMode,
         messageQueue,
         api,
-        allowedTools: happyServer.toolNames.map(toolName => `mcp__happy__${toolName}`),
+        allowedTools: [],
         onModeChange: (newMode) => {
             currentRunMode = newMode;
             session.sendSessionEvent({ type: 'switch', mode: newMode });
@@ -784,12 +776,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             currentSession = sessionInstance;
         },
         onAbort: resetCurrentModeDefaults,
-        mcpServers: {
-            'happy': {
-                type: 'http' as const,
-                url: happyServer.url,
-            }
-        },
+        mcpServers: {},
         session,
         claudeEnvVars: options.claudeEnvVars,
         claudeArgs: options.claudeArgs,
@@ -812,10 +799,6 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Close session
     logger.debug('Closing session...');
     await session.close();
-
-    // Stop Happy MCP server
-    happyServer.stop();
-    logger.debug('Stopped Happy MCP server');
 
     // Stop Hook server and cleanup settings file
     hookServer.stop();

@@ -46,7 +46,6 @@ const mocks = vi.hoisted(() => {
     mockGetOrCreateSession: vi.fn(async () => ({ id: 'session-1' })),
     mockSetupOfflineReconnection: vi.fn(),
     mockNotifyDaemonSessionStarted: vi.fn(async () => ({ error: null })),
-    mockStartHappyServer: vi.fn(),
     mockProjectPath: vi.fn(() => '/tmp/happy'),
     mockSetBackend: vi.fn(),
     mockKillRegister: vi.fn((_rpc: unknown, handler: () => Promise<void>) => {
@@ -96,10 +95,6 @@ vi.mock('@/daemon/controlClient', () => ({
 
 vi.mock('@/claude/registerKillSessionHandler', () => ({
   registerKillSessionHandler: mocks.mockKillRegister,
-}));
-
-vi.mock('@/claude/utils/startHappyServer', () => ({
-  startHappyServer: mocks.mockStartHappyServer,
 }));
 
 vi.mock('@/projectPath', () => ({
@@ -215,10 +210,6 @@ describe('runAcp', () => {
       reconnectionHandle: { cancel: vi.fn() },
       isOffline: false,
     }));
-    mocks.mockStartHappyServer.mockResolvedValue({
-      url: 'http://127.0.0.1:9876',
-      stop: vi.fn(),
-    });
   });
 
   it('wires backend messages through mapper into session envelopes', async () => {

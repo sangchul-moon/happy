@@ -201,9 +201,6 @@ export interface AcpBackendOptions {
   /** Transport handler for agent-specific behavior (timeouts, filtering, etc.) */
   transportHandler?: TransportHandler;
 
-  /** Optional callback to check if prompt has change_title instruction */
-  hasChangeTitleInstruction?: (prompt: string) => boolean;
-
   /** Log raw session updates to console */
   verbose?: boolean;
 }
@@ -333,9 +330,6 @@ export class AcpBackend implements AgentBackend {
 
   /** Map from real tool call ID to tool name for auto-approval */
   private toolCallIdToNameMap = new Map<string, string>();
-
-  /** Track if we just sent a prompt with change_title instruction */
-  private recentPromptHadChangeTitle = false;
 
   /** Track tool calls count since last prompt (to identify first tool call) */
   private toolCallCountSincePrompt = 0;
@@ -585,7 +579,6 @@ export class AcpBackend implements AgentBackend {
           
           // If toolName is "other" or "Unknown tool", try to determine real tool name
           const context: ToolNameContext = {
-            recentPromptHadChangeTitle: this.recentPromptHadChangeTitle,
             toolCallCountSincePrompt: this.toolCallCountSincePrompt,
           };
           toolName = this.transport.determineToolName?.(toolName, toolCallId, input, context) ?? toolName;
@@ -1038,16 +1031,9 @@ export class AcpBackend implements AgentBackend {
   private waitingForResponse = false;
 
   async sendPrompt(sessionId: SessionId, prompt: string): Promise<void> {
-    // Check if prompt contains change_title instruction (via optional callback)
-    const promptHasChangeTitle = this.options.hasChangeTitleInstruction?.(prompt) ?? false;
-
-    // Reset tool call counter and set flag
+    // Reset tool call counter
     this.toolCallCountSincePrompt = 0;
-    this.recentPromptHadChangeTitle = promptHasChangeTitle;
-    
-    if (promptHasChangeTitle) {
-      logger.debug('[AcpBackend] Prompt contains change_title instruction - will auto-approve first "other" tool call if it matches pattern');
-    }
+
     if (this.disposed) {
       throw new Error('Backend has been disposed');
     }

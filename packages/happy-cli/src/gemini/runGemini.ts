@@ -10,7 +10,7 @@ import { render } from 'ink';
 import React from 'react';
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { ApiClient } from '@/api/api';
 import { logger } from '@/ui/logger';
@@ -21,8 +21,6 @@ import { configuration } from '@/configuration';
 import packageJson from '../../package.json';
 import { MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
-import { projectPath } from '@/projectPath';
-import { startHappyServer } from '@/claude/utils/startHappyServer';
 import { MessageBuffer } from '@/ui/ink/messageBuffer';
 import { notifyDaemonSessionStarted } from '@/daemon/controlClient';
 import { encodeBase64 } from '@/api/encryption';
@@ -39,7 +37,7 @@ import { GeminiReasoningProcessor } from '@/gemini/utils/reasoningProcessor';
 import { GeminiDiffProcessor } from '@/gemini/utils/diffProcessor';
 import type { GeminiMode, CodexMessagePayload } from '@/gemini/types';
 import type { PermissionMode } from '@/api/types';
-import { GEMINI_MODEL_ENV, DEFAULT_GEMINI_MODEL, CHANGE_TITLE_INSTRUCTION } from '@/gemini/constants';
+import { GEMINI_MODEL_ENV, DEFAULT_GEMINI_MODEL } from '@/gemini/constants';
 import {
   readGeminiLocalConfig,
   saveGeminiModelToConfig,
@@ -272,11 +270,7 @@ export async function runGemini(opts: {
     let fullPrompt = originalUserMessage;
     if (isFirstMessage && message.meta?.appendSystemPrompt) {
       // Prepend system prompt to user message only for first message
-      // Also add change_title instruction (like Codex does)
-      // Use EXACT same format as Codex: add instruction AFTER user message
-      // This matches Codex's approach exactly - instruction comes after user message
-      // Codex format: system prompt + user message + change_title instruction
-      fullPrompt = message.meta.appendSystemPrompt + '\n\n' + originalUserMessage + '\n\n' + CHANGE_TITLE_INSTRUCTION;
+      fullPrompt = message.meta.appendSystemPrompt + '\n\n' + originalUserMessage;
       isFirstMessage = false;
     }
 
@@ -396,8 +390,6 @@ export async function runGemini(opts: {
         await session.close();
       }
 
-      happyServer.stop();
-
       if (geminiBackend) {
         await geminiBackend.dispose();
       }
@@ -502,14 +494,7 @@ export async function runGemini(opts: {
   // Start Happy MCP server and create Gemini backend
   //
 
-  const happyServer = await startHappyServer(session);
-  const bridgeCommand = join(projectPath(), 'bin', 'happy-mcp.mjs');
-  const mcpServers = {
-    happy: {
-      command: bridgeCommand,
-      args: ['--url', happyServer.url]
-    }
-  };
+  const mcpServers = {};
 
   // Create permission handler for tool approval (variable declared earlier for onSessionSwap)
   permissionHandler = new GeminiPermissionHandler(session);
@@ -536,8 +521,6 @@ export async function runGemini(opts: {
   let isResponseInProgress = false;
   let currentResponseMessageId: string | null = null; // Track the message ID for current response
   let hadToolCallInTurn = false; // Track if any tool calls happened in this turn (for task_complete)
-  let pendingChangeTitle = false; // Track if we're waiting for change_title to complete
-  let changeTitleCompleted = false; // Track if change_title was completed in this turn
   let taskStartedSent = false; // Track if task_started was sent this turn (prevent duplicates)
 
   /**
@@ -682,14 +665,6 @@ export async function runGemini(opts: {
         break;
 
       case 'tool-result':
-        // Track change_title completion
-        if (msg.toolName === 'change_title' || 
-            msg.callId?.includes('change_title') ||
-            msg.toolName === 'happy__change_title') {
-          changeTitleCompleted = true;
-          logger.debug('[gemini] change_title completed');
-        }
-        
         // Show tool result in UI like Codex does
         // Check if result contains error information
         const isError = msg.result && typeof msg.result === 'object' && 'error' in msg.result;
@@ -1058,17 +1033,11 @@ export async function runGemini(opts: {
         hadToolCallInTurn = false;
         taskStartedSent = false; // Reset so new turn can send task_started
         
-        // Track if this prompt contains change_title instruction
-        // If so, don't send task_complete until change_title is completed
-        pendingChangeTitle = message.message.includes('change_title') || 
-                             message.message.includes('happy__change_title');
-        changeTitleCompleted = false;
-        
         if (!geminiBackend || !acpSessionId) {
           throw new Error('Gemini backend or session not initialized');
         }
         
-        // The prompt already includes system prompt and change_title instruction (added in onUserMessage handler)
+        // The prompt already includes system prompt (added in onUserMessage handler)
         // This is done in the message queue, so message.message already contains everything
         let promptToSend = message.message;
         
@@ -1277,8 +1246,6 @@ export async function runGemini(opts: {
         
         // Reset tracking flags
         hadToolCallInTurn = false;
-        pendingChangeTitle = false;
-        changeTitleCompleted = false;
         taskStartedSent = false;
         
         thinking = false;
@@ -1316,8 +1283,6 @@ export async function runGemini(opts: {
     if (geminiBackend) {
       await geminiBackend.dispose();
     }
-
-    happyServer.stop();
 
     if (process.stdin.isTTY) {
       try { process.stdin.setRawMode(false); } catch { /* ignore */ }

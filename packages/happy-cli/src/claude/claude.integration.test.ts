@@ -4,7 +4,7 @@
  * Covers:
  *   - clarification + multi-turn context via resume
  *   - real model switching across resumed turns
- *   - Happy MCP tool usage (`mcp__happy__change_title`)
+ *   - Happy MCP removed (no change_title tool)
  *   - native Claude tool usage against the copied fixture project
  *   - real workspace-boundary behavior against `../sibling-dir`
  *   - permission denial and interrupt handling
@@ -19,11 +19,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { ApiSessionClient } from '@/api/apiSession';
 import { getIntegrationEnv } from '@/testing/currentIntegrationEnv';
 import { PushableAsyncIterable } from '@/utils/PushableAsyncIterable';
 import { query, type QueryOptions, type SDKAssistantMessage, type SDKMessage, type SDKResultMessage, type SDKSystemMessage } from './sdk';
-import { startHappyServer } from './utils/startHappyServer';
 import { systemPrompt } from './utils/systemPrompt';
 
 const MODEL_OPUS = 'claude-opus-4-1-20250805';
@@ -151,34 +149,12 @@ type ClaudeTurn = {
 };
 
 class ClaudeQueryDriver {
-    private happyServer: Awaited<ReturnType<typeof startHappyServer>> | null = null;
-    private titleSummaries: string[] = [];
-
     async start(): Promise<void> {
-        const fakeSessionClient = {
-            sessionId: 'claude-integration-test',
-            sendClaudeSessionMessage: (message: unknown) => {
-                if (
-                    message
-                    && typeof message === 'object'
-                    && 'type' in message
-                    && (message as { type?: string }).type === 'summary'
-                ) {
-                    this.titleSummaries.push(String((message as { summary?: string }).summary ?? ''));
-                }
-            },
-        } as unknown as ApiSessionClient;
-
-        this.happyServer = await startHappyServer(fakeSessionClient);
+        // No-op: Happy MCP server removed
     }
 
     stop(): void {
-        this.happyServer?.stop();
-        this.happyServer = null;
-    }
-
-    getTitleSummaries(): string[] {
-        return [...this.titleSummaries];
+        // No-op: Happy MCP server removed
     }
 
     buildOptions(options: {
@@ -188,10 +164,6 @@ class ClaudeQueryDriver {
         model: string;
         resume?: string;
     }): QueryOptions {
-        if (!this.happyServer) {
-            throw new Error('ClaudeQueryDriver.start() must be called first');
-        }
-
         return {
             appendSystemPrompt: systemPrompt,
             canCallTool: options.canCallTool ?? (async (_toolName, input) => {
@@ -202,12 +174,7 @@ class ClaudeQueryDriver {
             }),
             cwd: integrationEnv.projectPath,
             disallowedTools: options.disallowedTools,
-            mcpServers: {
-                happy: {
-                    type: 'http',
-                    url: this.happyServer.url,
-                },
-            },
+            mcpServers: {},
             model: options.model,
             allowedTools: options.allowedTools,
             resume: options.resume,
@@ -337,7 +304,7 @@ describe.skipIf(!claudeAvailable)('Claude Integration (SDK/query)', { timeout: 1
         expect(resultText(clarificationMessages)?.trim()).toBe('ACK-OPTION_B');
 
         const execution = await driver!.runTurn({
-            allowedTools: ['mcp__happy__change_title', 'TodoWrite', 'TodoRead', 'Write', 'Edit', 'Read', 'Glob', 'LS'],
+            allowedTools: ['TodoWrite', 'TodoRead', 'Write', 'Edit', 'Read', 'Glob', 'LS'],
             disallowedTools: ['Bash'],
             model: MODEL_SONNET,
             prompt: [
@@ -351,7 +318,7 @@ describe.skipIf(!claudeAvailable)('Claude Integration (SDK/query)', { timeout: 1
                 'The sibling file must contain exactly these two lines:',
                 'choice=OPTION_B',
                 'token=ember-orbit-17',
-                'Then update the happy title so it mentions OPTION_B and reply with only DONE.',
+                'Then reply with only DONE.',
             ].join('\n'),
             resume: sessionIdFrom(clarificationMessages),
         });
@@ -360,20 +327,18 @@ describe.skipIf(!claudeAvailable)('Claude Integration (SDK/query)', { timeout: 1
         const todoWrite = executionToolUses.find((toolUse) => toolUse.name === 'TodoWrite');
         expect(execution.init?.model?.toLowerCase()).toContain('sonnet');
         expect(execution.sessionId).toBe(sessionIdFrom(clarificationMessages));
-        expect(execution.toolUseNames).toContain('mcp__happy__change_title');
         expect(execution.toolUseNames).toContain('TodoWrite');
         expect(execution.toolUseNames.some((toolName) => WRITE_TOOL_NAMES.has(toolName))).toBe(true);
         expect(execution.toolUseNames).not.toContain('Bash');
         expect(readFileSync(siblingWriteFile, 'utf8').trimEnd()).toBe('choice=OPTION_B\ntoken=ember-orbit-17');
         expect(JSON.stringify(todoWrite?.input)).toContain('Implement OPTION_B follow-up');
         expect(JSON.stringify(todoWrite?.input)).toContain('Inspect ../sibling-dir boundary');
-        expect(driver!.getTitleSummaries().some((summary) => summary.includes('OPTION_B'))).toBe(true);
         expect(execution.result && 'result' in execution.result ? execution.result.result?.trim() : undefined).toBe('DONE');
     });
 
     it('should leave the file untouched and explain the refusal when native write is explicitly disallowed', async () => {
         const denied = await driver!.runTurn({
-            allowedTools: ['mcp__happy__change_title', 'Write', 'Edit', 'Read', 'LS'],
+            allowedTools: ['Write', 'Edit', 'Read', 'LS'],
             disallowedTools: ['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'],
             model: MODEL_SONNET,
             prompt: [

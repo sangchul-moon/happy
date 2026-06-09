@@ -144,14 +144,6 @@ export function createGeminiBackend(options: GeminiBackendOptions): GeminiBacken
     mcpServers: options.mcpServers,
     permissionHandler: options.permissionHandler,
     transportHandler: geminiTransport,
-    // Check if prompt instructs the agent to change title (for auto-approval of change_title tool)
-    hasChangeTitleInstruction: (prompt: string) => {
-      const lower = prompt.toLowerCase();
-      return lower.includes('change_title') ||
-             lower.includes('change title') ||
-             lower.includes('set title') ||
-             lower.includes('mcp__happy__change_title');
-    },
   };
 
   // Determine model source for logging

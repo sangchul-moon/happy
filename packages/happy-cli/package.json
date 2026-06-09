@@ -12,8 +12,7 @@
     "url": "https://github.com/slopus/happy"
   },
   "bin": {
-    "happy": "./bin/happy.mjs",
-    "happy-mcp": "./bin/happy-mcp.mjs"
+    "happy": "./bin/happy.mjs"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

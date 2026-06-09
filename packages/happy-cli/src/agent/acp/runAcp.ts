@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
 import { ApiClient } from '@/api/api';
 import type { ApiSessionClient } from '@/api/apiSession';
 import type { AgentMessage } from '@/agent/core';
@@ -17,8 +16,6 @@ import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
 import { notifyDaemonSessionStarted } from '@/daemon/controlClient';
 import { encodeBase64 } from '@/api/encryption';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
-import { startHappyServer } from '@/claude/utils/startHappyServer';
-import { projectPath } from '@/projectPath';
 import { BasePermissionHandler, type PermissionResult } from '@/utils/BasePermissionHandler';
 import { connectionState } from '@/utils/serverConnectionErrors';
 import {
@@ -528,20 +525,12 @@ export async function runAcp(opts: {
   let sawModes = false;
   let sawModels = false;
 
-  const happyServer = await startHappyServer(session);
-  const mcpServers = {
-    happy: {
-      command: join(projectPath(), 'bin', 'happy-mcp.mjs'),
-      args: ['--url', happyServer.url],
-    },
-  };
-
   const backend = new AcpBackend({
     agentName: opts.agentName,
     cwd: process.cwd(),
     command: opts.command,
     args: opts.args,
-    mcpServers,
+    mcpServers: {},
     permissionHandler,
     transportHandler: new DefaultTransport(opts.agentName),
     verbose,
@@ -948,12 +937,6 @@ export async function runAcp(opts: {
 
     backend.offMessage?.(onBackendMessage);
     await backend.dispose();
-
-    try {
-      happyServer.stop();
-    } catch (error) {
-      logger.debug(`[${opts.agentName}] Failed to stop Happy MCP server:`, error);
-    }
 
     try {
       session.updateMetadata((currentMetadata) => ({
