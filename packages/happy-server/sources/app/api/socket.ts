@@ -24,6 +24,7 @@ export function startSocket(app: Fastify) {
             allowedHeaders: ["*"]
         },
         transports: ['websocket', 'polling'],
+        maxHttpBufferSize: 10 * 1024 * 1024, // 10MB — headroom for file-transfer RPCs (base64 inflated)
         pingTimeout: 45000,
         pingInterval: 15000,
         path: '/v1/updates',
