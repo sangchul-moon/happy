@@ -66,6 +66,8 @@ On your computer, run `happy` instead of `claude` or `happy codex` instead of `c
 
 ## 📦 Project Components
 
+> **Building the apps?** See the [Happy App build guide](packages/happy-app/README.md) for step-by-step web / macOS / Windows / iOS / Android instructions.
+
 - **[Happy App](https://github.com/slopus/happy/tree/main/packages/happy-app)** - Web UI + mobile client (Expo)
 - **[Happy CLI](https://github.com/slopus/happy/tree/main/packages/happy-cli)** - Command-line interface for Claude Code and Codex
 - **[Happy Agent](https://github.com/slopus/happy/tree/main/packages/happy-agent)** - Remote agent control CLI (create, send, monitor sessions)
