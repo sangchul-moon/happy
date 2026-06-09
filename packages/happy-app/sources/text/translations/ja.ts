@@ -579,6 +579,8 @@ export const ja: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: '変更',
         searchPlaceholder: 'ファイルを検索...',
         detachedHead: 'detached HEAD',

@@ -592,6 +592,8 @@ export const en = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: 'Changes',
         searchPlaceholder: 'Search files...',
         detachedHead: 'detached HEAD',

@@ -12,6 +12,8 @@ import { layout } from '@/components/layout';
 import { t } from '@/text';
 import { FileIcon } from '@/components/FileIcon';
 import { resolveSessionFilePath } from '@/utils/sessionFileLinks';
+import { Octicons } from '@expo/vector-icons';
+import { useFileTransfer } from '@/hooks/useFileTransfer';
 
 interface FileContent {
     content: string;
@@ -310,6 +312,22 @@ export default React.memo(function FileScreen() {
 
     const fileName = filePath.split('/').pop() || filePath;
     const language = getFileLanguage(filePath);
+    const { downloadFile, isDownloading } = useFileTransfer(sessionId);
+
+    const renderDownloadButton = (color: string) => (
+        <Pressable
+            onPress={() => { if (!isDownloading) downloadFile(filePath, fileName); }}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', opacity: isDownloading ? 0.5 : 1 }}
+        >
+            {isDownloading
+                ? <ActivityIndicator size="small" color={color} />
+                : <Octicons name="download" size={18} color={color} />}
+            <Text style={{ fontSize: 14, color, marginLeft: 6, ...Typography.default() }}>
+                {t('files.downloadFile')}
+            </Text>
+        </Pressable>
+    );
 
     if (isLoading) {
         return (
@@ -397,6 +415,9 @@ export default React.memo(function FileScreen() {
                 }}>
                     {fileName}
                 </Text>
+                <View style={{ marginTop: 20 }}>
+                    {renderDownloadButton(theme.colors.textLink)}
+                </View>
             </View>
         );
     }
@@ -425,6 +446,7 @@ export default React.memo(function FileScreen() {
                         ? `${filePath}:${requestedLine}${requestedColumn !== null && requestedColumn > 0 ? `:${requestedColumn}` : ''}`
                         : filePath}
                 </Text>
+                {renderDownloadButton(theme.colors.textLink)}
             </View>
 
             {/* Toggle buttons for File/Diff view */}

@@ -578,6 +578,8 @@ export const es: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: 'Cambios',
         searchPlaceholder: 'Buscar archivos...',
         detachedHead: 'HEAD separado',

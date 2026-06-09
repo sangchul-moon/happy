@@ -579,6 +579,8 @@ export const zhHans: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: '更改',
         searchPlaceholder: '搜索文件...',
         detachedHead: '游离 HEAD',

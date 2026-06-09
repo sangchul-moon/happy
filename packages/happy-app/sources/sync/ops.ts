@@ -64,6 +64,20 @@ interface SessionWriteFileResponse {
     error?: string;
 }
 
+// Upload file operation types (client -> session working directory)
+interface SessionUploadFileRequest {
+    fileName: string;
+    content: string; // base64 encoded
+    subPath?: string; // optional subdirectory within working directory
+}
+
+interface SessionUploadFileResponse {
+    success: boolean;
+    path?: string; // full path where file was saved
+    size?: number;
+    error?: string;
+}
+
 // List directory operation types
 interface SessionListDirectoryRequest {
     path: string;
@@ -549,6 +563,33 @@ export async function sessionWriteFile(
         const response = await apiSocket.sessionRPC<SessionWriteFileResponse, SessionWriteFileRequest>(
             sessionId,
             'writeFile',
+            request
+        );
+        return response;
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
+ * Upload a file into the session working directory.
+ * Unlike sessionWriteFile, this creates missing subdirectories and overwrites
+ * freely — for transferring a file from the client onto the agent's machine.
+ */
+export async function sessionUploadFile(
+    sessionId: string,
+    fileName: string,
+    content: string,
+    subPath?: string
+): Promise<SessionUploadFileResponse> {
+    try {
+        const request: SessionUploadFileRequest = { fileName, content, subPath };
+        const response = await apiSocket.sessionRPC<SessionUploadFileResponse, SessionUploadFileRequest>(
+            sessionId,
+            'uploadFile',
             request
         );
         return response;

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Platform, TextInput } from 'react-native';
+import { View, ActivityIndicator, Platform, TextInput, Pressable } from 'react-native';
 import { t } from '@/text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Octicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { layout } from '@/components/layout';
 import { FileIcon } from '@/components/FileIcon';
 import { Shaker, ShakeInstance } from '@/components/Shaker';
 import { usePrefetchFileContents } from '@/hooks/usePrefetchFileContents';
+import { useFileTransfer } from '@/hooks/useFileTransfer';
 
 export default React.memo(function FilesScreen() {
     const router = useRouter();
@@ -30,6 +31,7 @@ export default React.memo(function FilesScreen() {
     const [isSearching, setIsSearching] = React.useState(false);
     const gitStatus = useSessionGitStatus(sessionId!);
     const { theme } = useUnistyles();
+    const { pickAndUpload, isUploading } = useFileTransfer(sessionId!);
 
     // Refs for shaking deleted file items
     const shakerRefs = React.useRef(new Map<string, ShakeInstance>());
@@ -209,6 +211,27 @@ export default React.memo(function FilesScreen() {
                     />
                 </View>
             </View>
+
+            {/* Send file into working directory */}
+            <Pressable
+                onPress={() => { if (!isUploading) pickAndUpload(); }}
+                style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderBottomWidth: Platform.select({ ios: 0.33, default: 1 }),
+                    borderBottomColor: theme.colors.divider,
+                    opacity: isUploading ? 0.5 : 1,
+                }}
+            >
+                {isUploading
+                    ? <ActivityIndicator size="small" color={theme.colors.textLink} style={{ marginRight: 8, width: 18 }} />
+                    : <Octicons name="upload" size={18} color={theme.colors.textLink} style={{ marginRight: 8 }} />}
+                <Text style={{ fontSize: 16, color: theme.colors.textLink, ...Typography.default() }}>
+                    {t('files.sendFile')}
+                </Text>
+            </Pressable>
 
             {/* Header with branch info */}
             {!isLoading && gitStatusFiles && (

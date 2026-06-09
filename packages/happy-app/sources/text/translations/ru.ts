@@ -594,6 +594,8 @@ export const ru: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: 'Изменения',
         searchPlaceholder: 'Поиск файлов...',
         detachedHead: 'отделённый HEAD',

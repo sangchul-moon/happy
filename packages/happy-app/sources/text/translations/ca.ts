@@ -578,6 +578,8 @@ export const ca: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: 'Canvis',
         searchPlaceholder: 'Cerca fitxers...',
         detachedHead: 'HEAD separat',

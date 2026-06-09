@@ -1,7 +1,7 @@
 import { logger } from '@/ui/logger';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, stat, mkdir } from 'fs/promises';
 import { createHash } from 'crypto';
 import { join } from 'path';
 import { run as runRipgrep } from '@/modules/ripgrep/index';
@@ -44,6 +44,22 @@ interface WriteFileRequest {
 interface WriteFileResponse {
     success: boolean;
     hash?: string; // hash of written file
+    error?: string;
+}
+
+// File transfer from client into the session working directory.
+// Unlike writeFile (editor-safe, hash-guarded, single file), uploadFile
+// overwrites freely and creates missing subdirectories — for "send me this file".
+interface UploadFileRequest {
+    fileName: string;
+    content: string; // base64 encoded
+    subPath?: string; // optional subdirectory within working directory
+}
+
+interface UploadFileResponse {
+    success: boolean;
+    path?: string; // full path where file was saved
+    size?: number; // file size in bytes
     error?: string;
 }
 
@@ -520,6 +536,48 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Failed to run difftastic'
+            };
+        }
+    });
+
+    // Upload file handler - receives a file from the client and saves it into
+    // the session working directory (auto-creating subdirectories, overwriting).
+    rpcHandlerManager.registerHandler<UploadFileRequest, UploadFileResponse>('uploadFile', async (data) => {
+        logger.debug('Upload file request:', data.fileName, 'subPath:', data.subPath);
+
+        try {
+            // Sanitize filename - strip path separators to prevent directory traversal
+            const sanitizedFileName = data.fileName.replace(/[/\\]/g, '_');
+
+            // Resolve target directory (optional subPath, validated against working dir)
+            let targetDir = workingDirectory;
+            if (data.subPath) {
+                const fullSubPath = join(workingDirectory, data.subPath);
+                const subValidation = validatePath(fullSubPath, workingDirectory);
+                if (!subValidation.valid) {
+                    return { success: false, error: subValidation.error };
+                }
+                targetDir = subValidation.resolvedPath!;
+            }
+
+            const targetPath = join(targetDir, sanitizedFileName);
+            const finalValidation = validatePath(targetPath, workingDirectory);
+            if (!finalValidation.valid) {
+                return { success: false, error: finalValidation.error };
+            }
+
+            await mkdir(targetDir, { recursive: true });
+
+            const buffer = Buffer.from(data.content, 'base64');
+            await writeFile(finalValidation.resolvedPath!, buffer);
+
+            logger.debug('File uploaded successfully:', finalValidation.resolvedPath, 'size:', buffer.length);
+            return { success: true, path: finalValidation.resolvedPath!, size: buffer.length };
+        } catch (error) {
+            logger.debug('Failed to upload file:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to upload file'
             };
         }
     });

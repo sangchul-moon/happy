@@ -578,6 +578,8 @@ export const zhHant: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: '變更',
         searchPlaceholder: '搜尋檔案...',
         detachedHead: '游離 HEAD',

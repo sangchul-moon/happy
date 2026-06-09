@@ -577,6 +577,8 @@ export const pt: TranslationStructure = {
     },
 
     files: {
+        sendFile: 'Send file',
+        downloadFile: 'Download',
         changes: 'Alterações',
         searchPlaceholder: 'Buscar arquivos...',
         detachedHead: 'HEAD desanexado',
