@@ -1,36 +1,36 @@
-# Happy App — Build Guide
+# Happy 앱 — 빌드 가이드
 
-The Happy client is one Expo / React Native codebase that ships to **web, iOS,
-Android, and desktop (macOS + Windows)**. Desktop builds wrap the web bundle in
-a [Tauri](https://tauri.app) shell.
+Happy 클라이언트는 하나의 Expo / React Native 코드베이스로 **웹, iOS, Android,
+데스크톱(macOS + Windows)** 을 모두 빌드합니다. 데스크톱은 웹 번들을
+[Tauri](https://tauri.app) 셸로 감쌉니다.
 
-| Target            | Built with        | Host OS you must build on        |
-| ----------------- | ----------------- | -------------------------------- |
-| Web               | Expo (Metro)      | any (macOS / Windows / Linux)    |
-| macOS desktop     | Tauri 2 + web     | **macOS**                        |
-| Windows desktop   | Tauri 2 + web     | **Windows**                      |
-| iOS               | Expo prebuild     | **macOS** (Xcode)                |
-| Android           | Expo prebuild     | macOS / Windows / Linux          |
+| 타깃             | 빌드 도구          | 빌드해야 하는 OS                     |
+| ---------------- | ------------------ | ------------------------------------ |
+| 웹               | Expo (Metro)       | 아무 OS (macOS / Windows / Linux)    |
+| macOS 데스크톱   | Tauri 2 + 웹       | **macOS**                            |
+| Windows 데스크톱 | Tauri 2 + 웹       | **Windows**                          |
+| iOS              | Expo prebuild      | **macOS** (Xcode 필요)               |
+| Android          | Expo prebuild      | macOS / Windows / Linux              |
 
-> Tauri does **not** cross-compile — build the Windows app on Windows and the
-> macOS app on macOS. Native mobile follows the usual rule: iOS needs macOS.
+> Tauri는 **크로스 컴파일이 안 됩니다** — Windows 앱은 Windows에서, macOS 앱은
+> macOS에서 빌드해야 합니다. iOS는 늘 그렇듯 macOS가 필요합니다.
 
 ---
 
-## 1. Prerequisites (all platforms)
+## 1. 사전 준비물 (공통)
 
 - **Git**
-- **Node.js 20 LTS or 22 LTS**
-- **pnpm 10.11** — enable via Corepack: `corepack enable`
-  (the version is pinned in the repo's `packageManager` field)
+- **Node.js 20 LTS 또는 22 LTS**
+- **pnpm 10.11** — Corepack으로 활성화: `corepack enable`
+  (버전은 저장소 `packageManager` 필드에 고정돼 있음)
 
-Per-target extras are listed in each section below.
+타깃별 추가 준비물은 각 섹션에 정리돼 있습니다.
 
 ---
 
-## 2. Common setup
+## 2. 공통 셋업
 
-Clone the repo and install from the **monorepo root**:
+저장소를 클론하고 **모노레포 루트에서** 설치합니다:
 
 ```bash
 git clone https://github.com/sangchul-moon/happy.git
@@ -38,29 +38,28 @@ cd happy
 git checkout migration/upstream-sync
 corepack enable
 
-# Full install (needed for iOS/Android/desktop):
+# 전체 설치 (iOS/Android/데스크톱에 필요):
 pnpm install
 
-# OR — web-only / faster, skips native CLI & server packages:
+# 또는 — 웹 전용/더 빠름, 네이티브 많은 CLI·서버 패키지는 건너뜀:
 pnpm install --filter "happy-app..."
 ```
 
-### Point the app at a server
+### 앱이 바라볼 서버 지정
 
-The app talks to a Happy server (sync backend). Set the URL **once** via an
-env file — Expo auto-loads it, and Tauri's web export picks it up too.
+앱은 Happy 서버(동기화 백엔드)와 통신합니다. URL은 env 파일로 **한 번만**
+지정하면 — Expo가 자동 로드하고, Tauri의 웹 export도 이 값을 가져갑니다.
 
-Create `packages/happy-app/.env`:
+`packages/happy-app/.env` 파일을 만들고:
 
 ```
 EXPO_PUBLIC_HAPPY_SERVER_URL=https://your-happy-server.example.com
 ```
 
-- Omit it to use the built-in default (the public cloud server).
-- You can also change the server **inside the app** (Settings → Server) without
-  rebuilding.
+- 생략하면 기본값(공개 클라우드 서버)을 씁니다.
+- 앱 **안에서**(설정 → 서버) 재빌드 없이 서버를 바꿀 수도 있습니다.
 
-All app commands below run from `packages/happy-app`:
+아래 앱 명령들은 모두 `packages/happy-app`에서 실행합니다:
 
 ```bash
 cd packages/happy-app
@@ -68,166 +67,163 @@ cd packages/happy-app
 
 ---
 
-## 3. Web
+## 3. 웹
 
-No native toolchain required.
+네이티브 툴체인이 필요 없습니다.
 
 ```bash
-# Dev server (hot reload) — open the printed http://localhost:8081
+# 개발 서버 (핫 리로드) — 출력되는 http://localhost:8081 을 브라우저로 열기
 pnpm web
 
-# Static production bundle → ./dist (host with any static server)
+# 정적 프로덕션 번들 → ./dist (아무 정적 서버로 호스팅)
 npx expo export --platform web
-npx serve dist          # example static host
+npx serve dist          # 정적 호스팅 예시
 ```
 
-`dist/` is a single-page app; serve it behind nginx / Vercel / any static host.
-Serve it over **HTTPS** if your server URL is HTTPS (avoids mixed-content).
+`dist/`는 단일 페이지 앱(SPA)입니다. nginx / Vercel 등 아무 정적 호스트로
+서빙하세요. 서버 URL이 HTTPS면 웹도 **HTTPS**로 서빙해야 합니다(mixed-content 방지).
 
 ---
 
-## 4. macOS desktop (Tauri)
+## 4. macOS 데스크톱 (Tauri)
 
-**Extra prerequisites**
+**추가 준비물**
 
-- **Rust** (1.77.2+): install via <https://rustup.rs>
+- **Rust** (1.77.2+): <https://rustup.rs> 에서 설치
 - **Xcode Command Line Tools**: `xcode-select --install`
 
-**Build**
+**빌드**
 
 ```bash
-# Dev (hot reload window)
+# 개발 (핫 리로드 창)
 pnpm tauri:dev
 
-# Production .app + .dmg
+# 프로덕션 .app + .dmg
 pnpm tauri:build:production
 ```
 
-Output: `src-tauri/target/release/bundle/` (`.app` and `.dmg`).
-`tauri build` runs `expo export` first automatically (see `beforeBuildCommand`).
+산출물: `src-tauri/target/release/bundle/` (`.app`, `.dmg`).
+`tauri build`는 먼저 `expo export`를 자동 실행합니다(`beforeBuildCommand`).
 
-> Unsigned builds will be Gatekeeper-blocked on other Macs. To distribute,
-> sign/notarize with an Apple Developer ID (configure in `src-tauri`).
+> 서명 안 한 빌드는 다른 Mac에서 Gatekeeper에 막힙니다. 배포하려면 Apple
+> Developer ID로 서명/공증하세요(`src-tauri`에서 설정).
 
 ---
 
-## 5. Windows desktop (Tauri)
+## 5. Windows 데스크톱 (Tauri)
 
-**Extra prerequisites**
+**추가 준비물**
 
-- **Rust** (1.77.2+): <https://rustup.rs> (use the MSVC toolchain)
-- **Microsoft C++ Build Tools** — Visual Studio Build Tools with the
-  "Desktop development with C++" workload
-- **WebView2 runtime** — preinstalled on Windows 10/11 (else install from
-  Microsoft)
+- **Rust** (1.77.2+): <https://rustup.rs> (MSVC 툴체인 사용)
+- **Microsoft C++ Build Tools** — Visual Studio Build Tools의
+  "Desktop development with C++" 워크로드
+- **WebView2 런타임** — Windows 10/11엔 기본 설치됨(없으면 Microsoft에서 설치)
 
-**Build** (PowerShell, from `packages\happy-app`)
+**빌드** (PowerShell, `packages\happy-app`에서)
 
 ```powershell
-# Dev
+# 개발
 pnpm tauri:dev
 
-# Production installers (.msi + .exe/NSIS)
+# 프로덕션 설치파일 (.msi + .exe/NSIS)
 pnpm tauri:build:production
 ```
 
-Output: `src-tauri\target\release\bundle\` (`msi\` and `nsis\`).
+산출물: `src-tauri\target\release\bundle\` (`msi\`, `nsis\`).
 
-> If `pnpm install` failed on native modules, install only the app:
-> `pnpm install --filter "happy-app..."` from the repo root.
+> `pnpm install`이 네이티브 모듈에서 실패하면 앱만 설치하세요(루트에서):
+> `pnpm install --filter "happy-app..."`
 
 ---
 
-## 6. iOS (macOS only)
+## 6. iOS (macOS 전용)
 
-**Extra prerequisites**
+**추가 준비물**
 
-- **Xcode** (+ a simulator) and **CocoaPods**: `sudo gem install cocoapods`
-  or `brew install cocoapods`
+- **Xcode**(+ 시뮬레이터)와 **CocoaPods**: `sudo gem install cocoapods`
+  또는 `brew install cocoapods`
 
-**Build / run**
+**빌드 / 실행**
 
 ```bash
-# Generate native ios/ project (first time, or after native config changes)
+# 네이티브 ios/ 프로젝트 생성 (최초 1회, 또는 네이티브 설정 변경 후)
 pnpm prebuild
 
-# Run on a booted simulator
+# 부팅된 시뮬레이터에서 실행
 pnpm ios
 
-# Run on a USB-connected device
+# USB 연결된 실기기에서 실행
 pnpm ios:connected-device
 ```
 
-Variants: `pnpm ios:dev` / `ios:preview` / `ios:production` (set `APP_ENV`).
+변형: `pnpm ios:dev` / `ios:preview` / `ios:production` (`APP_ENV` 지정).
 
-**Signing** — the default bundle id is `com.slopus.happy.dev` under the upstream
-team. To run on your own device you must use **your** Apple team:
+**서명** — 기본 번들 ID는 업스트림 팀의 `com.slopus.happy.dev`입니다. 본인
+기기에 올리려면 **본인 Apple 팀**을 써야 합니다:
 
-1. Change the dev bundle id in `app.config.js` (`bundleId.development`) to
-   something unique, e.g. `com.yourname.happy.dev`.
-2. Open `ios/Happydev.xcworkspace` in Xcode → Signing & Capabilities → select
-   your Team (or enable Automatic signing).
+1. `app.config.js`의 dev 번들 ID(`bundleId.development`)를 고유한 값으로 변경
+   (예: `com.yourname.happy.dev`).
+2. `ios/Happydev.xcworkspace`를 Xcode로 열고 → Signing & Capabilities →
+   본인 Team 선택(또는 Automatic signing 켜기).
 
-A free Apple ID works for local device installs (apps expire after 7 days);
-over-the-air distribution (TestFlight / ad-hoc) needs a paid Apple Developer
-Program membership — see EAS below.
+무료 Apple ID로도 로컬 기기 설치는 됩니다(앱이 7일 후 만료). 무선 배포
+(TestFlight / ad-hoc)는 유료 Apple Developer Program이 필요합니다 — 아래 EAS 참고.
 
 ---
 
 ## 7. Android
 
-**Extra prerequisites**
+**추가 준비물**
 
 - **JDK 17**
-- **Android Studio** + SDK (set `ANDROID_HOME`, accept SDK licenses)
-- `google-services.json` is already committed in this folder.
+- **Android Studio** + SDK (`ANDROID_HOME` 설정, SDK 라이선스 동의)
+- `google-services.json`은 이미 이 폴더에 포함돼 있습니다.
 
-**Build / run**
+**빌드 / 실행**
 
 ```bash
-# Generate native android/ project
+# 네이티브 android/ 프로젝트 생성
 pnpm prebuild
 
-# Run on emulator / connected device
+# 에뮬레이터 / 연결된 기기에서 실행
 pnpm android
 
-# Release APK/AAB
+# 릴리스 APK/AAB
 pnpm android:production
 ```
 
-Variants: `pnpm android:dev` / `android:preview` / `android:production`.
-Release builds need a signing keystore (configure in `android/` after prebuild,
-or use EAS below).
+변형: `pnpm android:dev` / `android:preview` / `android:production`.
+릴리스 빌드는 서명 키스토어가 필요합니다(prebuild 후 `android/`에서 설정하거나
+아래 EAS 사용).
 
 ---
 
-## 8. Cloud builds for mobile (EAS) — no local toolchain
+## 8. 모바일 클라우드 빌드 (EAS) — 로컬 툴체인 불필요
 
-If you can't set up Xcode/Android locally, build in Expo's cloud:
+Xcode/Android를 로컬에 못 깔면 Expo 클라우드에서 빌드하세요:
 
 ```bash
 npm i -g eas-cli
 eas login
-eas build --platform ios --profile preview        # or android
+eas build --platform ios --profile preview        # 또는 android
 ```
 
-Profiles live in `eas.json` (`development`, `preview`, `production`, plus
-`-store` variants). iOS cloud builds still require a paid Apple Developer
-account; Android does not.
+프로필은 `eas.json`에 있습니다(`development`, `preview`, `production` 및
+`-store` 변형). iOS 클라우드 빌드는 유료 Apple Developer 계정이 필요하고,
+Android는 필요 없습니다.
 
 ---
 
-## 9. Troubleshooting
+## 9. 트러블슈팅
 
-- **`require is not defined` while loading `app.config.js` on Node 22** — fixed
-  in this repo (the config is ESM). Make sure you're on this branch.
-- **`balanced is not a function` during iOS `pod install`** — fixed via a
-  `balanced-match@1.0.2` pnpm override in the root `package.json`. Re-run
-  `pnpm install` if you see it.
-- **Windows `pnpm install` fails building native modules** — scope to the app:
-  `pnpm install --filter "happy-app..."` (skips `happy-cli`/`happy-server`).
-- **Desktop build can't find the web bundle** — `tauri build` exports it
-  automatically; if you run pieces manually, `npx expo export --platform web`
-  first so `dist/` exists.
-- **Wrong server** — check `packages/happy-app/.env`
-  (`EXPO_PUBLIC_HAPPY_SERVER_URL`) or switch it in-app under Settings → Server.
+- **Node 22에서 `app.config.js` 로드 중 `require is not defined`** — 이 저장소에선
+  수정됨(설정이 ESM). 이 브랜치를 쓰는지 확인하세요.
+- **iOS `pod install` 중 `balanced is not a function`** — 루트 `package.json`의
+  `balanced-match@1.0.2` pnpm override로 수정됨. 보이면 `pnpm install` 재실행.
+- **Windows `pnpm install`이 네이티브 모듈에서 실패** — 앱만 설치:
+  `pnpm install --filter "happy-app..."` (`happy-cli`/`happy-server` 제외).
+- **데스크톱 빌드가 웹 번들을 못 찾음** — `tauri build`가 자동으로 export하지만,
+  부분적으로 수동 실행했다면 `npx expo export --platform web`을 먼저 돌려 `dist/`를
+  만드세요.
+- **서버가 틀림** — `packages/happy-app/.env`의 `EXPO_PUBLIC_HAPPY_SERVER_URL`을
+  확인하거나, 앱 설정 → 서버에서 변경하세요.
