@@ -2,9 +2,8 @@ import * as React from 'react';
 import { Text, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useHeaderHeight } from '@/utils/responsive';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
-import { useRealtimeStatus } from '@/sync/storage';
+import { useRealtimeStatus, useLocalSettingMutable } from '@/sync/storage';
 import { MainView } from './MainView';
 import { StyleSheet } from 'react-native-unistyles';
 import { t } from '@/text';
@@ -42,14 +41,26 @@ const stylesheet = StyleSheet.create((theme) => ({
         color: theme.colors.text,
         ...Typography.default('semiBold'),
     },
+    bottomRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.colors.divider,
+    },
     settingsRow: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 14,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.colors.divider,
         gap: 10,
+    },
+    zenButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 4,
     },
     settingsText: {
         fontSize: 14,
@@ -63,15 +74,19 @@ export const SidebarView = React.memo(() => {
     const styles = stylesheet;
     const safeArea = useSafeAreaInsets();
     const router = useRouter();
-    const headerHeight = useHeaderHeight();
     const realtimeStatus = useRealtimeStatus();
+    const [zenMode, setZenMode] = useLocalSettingMutable('zenMode');
 
     const handleNewSession = React.useCallback(() => {
         router.navigate('/new');
     }, [router]);
 
+    const handleZenToggle = React.useCallback(() => {
+        setZenMode(!zenMode);
+    }, [zenMode, setZenMode]);
+
     return (
-        <View style={[styles.container, { paddingTop: safeArea.top + headerHeight }]}>
+        <View style={[styles.container, { paddingTop: safeArea.top + 8 }]}>
             {/* New Session button */}
             <Pressable
                 onPress={handleNewSession}
@@ -91,14 +106,24 @@ export const SidebarView = React.memo(() => {
             {/* Sessions list */}
             <MainView variant="sidebar" />
 
-            {/* Settings at bottom */}
-            <Pressable
-                onPress={() => router.push('/settings')}
-                style={styles.settingsRow}
-            >
-                <Ionicons name="settings-outline" size={18} color={stylesheet.settingsText.color} />
-                <Text style={styles.settingsText}>{t('settings.title')}</Text>
-            </Pressable>
+            {/* Settings + zen toggle at bottom */}
+            <View style={styles.bottomRow}>
+                <Pressable
+                    onPress={() => router.push('/settings')}
+                    style={styles.settingsRow}
+                >
+                    <Ionicons name="settings-outline" size={18} color={stylesheet.settingsText.color} />
+                    <Text style={styles.settingsText}>{t('settings.title')}</Text>
+                </Pressable>
+                <Pressable
+                    onPress={handleZenToggle}
+                    hitSlop={10}
+                    style={styles.zenButton}
+                    accessibilityLabel={t('zen.toggle')}
+                >
+                    <Ionicons name="chevron-back" size={18} color={stylesheet.settingsText.color} />
+                </Pressable>
+            </View>
         </View>
     );
 });
