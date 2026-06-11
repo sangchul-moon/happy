@@ -6,7 +6,6 @@ import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
 import { SessionListViewItem, SessionRowData } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { type SessionState, formatLastSeen, vibingMessages } from '@/utils/sessionUtils';
-import { Avatar } from './Avatar';
 import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
@@ -106,7 +105,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     sessionContent: {
         flex: 1,
-        marginLeft: 16,
         justifyContent: 'center',
     },
     sessionTitleRow: {
@@ -155,22 +153,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         lineHeight: 16,
         ...Typography.default(),
     },
-    avatarContainer: {
-        position: 'relative',
-        width: 48,
-        height: 48,
-    },
-    draftIconContainer: {
-        position: 'absolute',
-        bottom: -2,
-        right: -2,
-        width: 18,
-        height: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    draftIconOverlay: {
+    draftIcon: {
         color: theme.colors.textSecondary,
+        marginRight: 4,
     },
     artifactsSection: {
         paddingHorizontal: 16,
@@ -422,20 +407,15 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
             onPress={handlePress}
             {...menuProps}
         >
-            <View style={styles.avatarContainer}>
-                <Avatar id={session.avatarId} size={48} monochrome={!status.isConnected} flavor={session.flavor} />
-                {session.hasDraft && (
-                    <View style={styles.draftIconContainer}>
-                        <Ionicons
-                            name="create-outline"
-                            size={12}
-                            style={styles.draftIconOverlay}
-                        />
-                    </View>
-                )}
-            </View>
             <View style={styles.sessionContent}>
                 <View style={styles.sessionTitleRow}>
+                    {session.hasDraft && (
+                        <Ionicons
+                            name="create-outline"
+                            size={13}
+                            style={styles.draftIcon}
+                        />
+                    )}
                     <Text style={[
                         styles.sessionTitle,
                         status.isConnected ? styles.sessionTitleConnected : styles.sessionTitleDisconnected
