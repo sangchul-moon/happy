@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Platform } from 'react-native';
+import { View, Pressable, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { Machine } from '@/sync/storageTypes';
@@ -8,7 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { type SessionState, formatPathRelativeToHome, vibingMessages, formatLastSeen } from '@/utils/sessionUtils';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
-import { useAllMachines, useSessionGitStatus } from '@/sync/storage';
+import { useAllMachines, useSessionGitStatus, useSession, storage } from '@/sync/storage';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
@@ -16,7 +16,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
 import { SessionActionsAnchor, SessionActionsPopover } from './SessionActionsPopover';
 import { useSessionActionAlert } from '@/hooks/useSessionQuickActions';
-import { sessionKill } from '@/sync/ops';
+import { sessionKill, sessionAllow, sessionDeny } from '@/sync/ops';
 import { isWorktreePath, getRepoPath, getWorktreeName } from '@/utils/worktree';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useRouter } from 'expo-router';
@@ -266,6 +266,104 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
     );
 }
 
+// Tools whose pending permission can be answered with "accept all edits"
+const EDIT_TOOLS = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'ExitPlanMode', 'exit_plan_mode'];
+
+// Inline Allow / All Edits (or Always) / Deny buttons shown under a session row
+// while the agent waits on a tool permission. Subscribes to the full session
+// only when mounted (rows mount it only in the permission_required state), so
+// the SessionRowData deep-equal optimization stays intact.
+const PermissionActions = React.memo(({ sessionId }: { sessionId: string }) => {
+    const styles = stylesheet;
+    const { theme } = useUnistyles();
+    const session = useSession(sessionId);
+    const [loading, setLoading] = React.useState<'allow' | 'allEdits' | 'deny' | null>(null);
+
+    const pending = React.useMemo(() => {
+        const requests = session?.agentState?.requests;
+        if (!requests) return null;
+        const ids = Object.keys(requests);
+        if (ids.length === 0) return null;
+        const id = ids[0];
+        return { id, toolName: requests[id].tool, input: requests[id].arguments as Record<string, any> | undefined };
+    }, [session?.agentState?.requests]);
+
+    if (!pending) return null;
+
+    const isEditTool = EDIT_TOOLS.includes(pending.toolName);
+    const detail = pending.input?.file_path ? `: ${String(pending.input.file_path).split('/').pop()}`
+        : pending.input?.command ? `: ${pending.input.command}`
+            : pending.input?.pattern ? `: ${pending.input.pattern}`
+                : '';
+
+    const run = (kind: 'allow' | 'allEdits' | 'deny', fn: () => Promise<void>) => async () => {
+        if (loading) return;
+        setLoading(kind);
+        try {
+            await fn();
+        } finally {
+            setLoading(null);
+        }
+    };
+
+    return (
+        <View style={styles.permissionRow}>
+            <Text style={styles.permissionToolName} numberOfLines={1}>
+                {pending.toolName}{detail}
+            </Text>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.permissionButton, styles.permissionAllowButton]}
+                onPress={run('allow', () => sessionAllow(sessionId, pending.id))}
+                disabled={loading !== null}
+            >
+                {loading === 'allow' ? (
+                    <ActivityIndicator size="small" color={theme.colors.status.connected} />
+                ) : (
+                    <Text style={[styles.permissionButtonText, styles.permissionAllowText]}>Allow</Text>
+                )}
+            </TouchableOpacity>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.permissionButton, styles.permissionAllEditsButton]}
+                onPress={run('allEdits', async () => {
+                    if (isEditTool) {
+                        await sessionAllow(sessionId, pending.id, 'acceptEdits');
+                        storage.getState().updateSessionPermissionMode(sessionId, 'acceptEdits');
+                    } else {
+                        let toolIdentifier = pending.toolName;
+                        if (pending.toolName === 'Bash' && pending.input?.command) {
+                            toolIdentifier = `Bash(${pending.input.command})`;
+                        }
+                        await sessionAllow(sessionId, pending.id, undefined, [toolIdentifier]);
+                    }
+                })}
+                disabled={loading !== null}
+            >
+                {loading === 'allEdits' ? (
+                    <ActivityIndicator size="small" color={theme.colors.textLink} />
+                ) : (
+                    <Text style={[styles.permissionButtonText, styles.permissionAllEditsText]}>
+                        {isEditTool ? 'All Edits' : 'Always'}
+                    </Text>
+                )}
+            </TouchableOpacity>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.permissionButton, styles.permissionDenyButton]}
+                onPress={run('deny', () => sessionDeny(sessionId, pending.id))}
+                disabled={loading !== null}
+            >
+                {loading === 'deny' ? (
+                    <ActivityIndicator size="small" color={theme.colors.status.error} />
+                ) : (
+                    <Text style={[styles.permissionButtonText, styles.permissionDenyText]}>Deny</Text>
+                )}
+            </TouchableOpacity>
+        </View>
+    );
+});
+
 // Compact session row with status dot indicator
 const CompactSessionRow = React.memo(({ session, selected, showBorder }: { session: SessionRowData; selected?: boolean; showBorder?: boolean }) => {
     const styles = stylesheet;
@@ -353,7 +451,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         <Pressable
             style={[
                 styles.sessionRow,
-                showBorder && styles.sessionRowWithBorder,
+                showBorder && session.state !== 'permission_required' && styles.sessionRowWithBorder,
                 selected && styles.sessionRowSelected
             ]}
             onPress={handlePress}
@@ -377,10 +475,19 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         </Pressable>
     );
 
+    const itemWithPermission = (
+        <View>
+            {itemContent}
+            {session.state === 'permission_required' && (
+                <PermissionActions sessionId={session.id} />
+            )}
+        </View>
+    );
+
     if (!swipeEnabled) {
         return (
             <>
-                {itemContent}
+                {itemWithPermission}
                 <SessionActionsPopover
                     anchor={actionsAnchor}
                     onClose={() => setActionsAnchor(null)}
@@ -411,15 +518,66 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
             overshootRight={false}
             enabled={!archivingSession}
         >
-            {itemContent}
+            {itemWithPermission}
         </Swipeable>
     );
 });
+
+function hexToRgba(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
         backgroundColor: theme.colors.groupped.background,
         paddingTop: 8,
+    },
+    // Inline permission action row (Allow / All Edits / Deny)
+    permissionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        gap: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: theme.colors.divider,
+    },
+    permissionToolName: {
+        flex: 1,
+        fontSize: 11,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
+    permissionButton: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
+    },
+    permissionAllowButton: {
+        backgroundColor: hexToRgba(theme.colors.status.connected, 0.19),
+    },
+    permissionAllEditsButton: {
+        backgroundColor: hexToRgba(theme.colors.textLink, 0.19),
+    },
+    permissionDenyButton: {
+        backgroundColor: hexToRgba(theme.colors.status.error, 0.19),
+    },
+    permissionButtonText: {
+        fontSize: 10,
+        fontWeight: '500',
+        ...Typography.default('semiBold'),
+    },
+    permissionAllowText: {
+        color: theme.colors.status.connected,
+    },
+    permissionAllEditsText: {
+        color: theme.colors.textLink,
+    },
+    permissionDenyText: {
+        color: theme.colors.status.error,
     },
     // Section header styles
     sectionHeader: {
