@@ -45,6 +45,25 @@ export function saveSettings(settings: Settings, version: number) {
     mmkv.set('settings', JSON.stringify({ settings: settingsToSyncPayload(settings), version }));
 }
 
+export function loadSplitViewPanels(): string[] {
+    const panels = mmkv.getString('split-view-panels');
+    if (panels) {
+        try {
+            const parsed = JSON.parse(panels);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch (e) {
+            console.error('Failed to parse split view panels', e);
+        }
+    }
+    return [];
+}
+
+export function saveSplitViewPanels(panels: string[]) {
+    mmkv.set('split-view-panels', JSON.stringify(panels));
+}
+
 export function loadPendingSettings(): Partial<Settings> {
     const pending = mmkv.getString('pending-settings');
     if (pending) {

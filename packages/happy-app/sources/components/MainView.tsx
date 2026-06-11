@@ -21,6 +21,8 @@ import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackFriendsSearch } from '@/track';
+import { SplitViewContainer } from './SplitViewContainer';
+import { isSplitViewSupported } from '@/hooks/useSplitView';
 
 interface MainViewProps {
     variant: 'phone' | 'sidebar';
@@ -289,10 +291,14 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     }
 
     // Phone variant
-    // Tablet in phone mode - special case (when showing index view on tablets, show empty view)
+    // Tablet in phone mode - special case (when showing index view on tablets)
     if (isTablet) {
-        // Just show an empty view on tablets for the index view
-        // The sessions list is shown in the sidebar, so the main area should be blank
+        // On web/desktop, the main area hosts the split view (multiple session panels).
+        // The sessions list is shown in the sidebar; clicking items adds panels here.
+        if (isSplitViewSupported()) {
+            return <SplitViewContainer />;
+        }
+        // Native tablet: keep the main area blank for the index view.
         return <View style={styles.emptyStateContentContainer} />;
     }
 

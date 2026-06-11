@@ -14,6 +14,7 @@ import { t } from '@/text';
 import { isTauri } from '@/utils/isTauri';
 import { useOverlayNav } from '@/-session/sessionOverlayNav';
 import { DEFAULT_APP_ZOOM } from '@/hooks/useTauriZoom';
+import { hydrateSplitViewPanels } from '@/hooks/useSplitView';
 
 const TAURI_HEADER_CONTROL_LEFT = Math.ceil(92 / DEFAULT_APP_ZOOM);
 
@@ -63,6 +64,11 @@ export const SidebarNavigator = React.memo(() => {
     const isDesktopLayout = auth.isAuthenticated && isTablet;
     const showSidebar = isDesktopLayout && !zenMode;
     const { width: windowWidth } = useWindowDimensions();
+
+    // Restore persisted split-view panels once after mount.
+    React.useEffect(() => {
+        hydrateSplitViewPanels();
+    }, []);
 
     // Calculate target drawer width
     const fullDrawerWidth = React.useMemo(() => {

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Pressable, FlatList, Platform } from 'react-native';
 import { Text } from '@/components/StyledText';
-import { usePathname } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
+import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
 import { SessionListViewItem, SessionRowData } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { type SessionState, formatLastSeen, vibingMessages } from '@/utils/sessionUtils';
@@ -351,6 +352,9 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
 }) => {
     const styles = stylesheet;
     const navigateToSession = useNavigateToSession();
+    const router = useRouter();
+    const isTablet = useIsTablet();
+    const addPanel = useSplitViewStore(state => state.addPanel);
     const [actionsAnchor, setActionsAnchor] = React.useState<SessionActionsAnchor | null>(null);
     const baseStatus = STATUS_CONFIG[session.state];
     // Override to solid blue when session has unread results
@@ -373,8 +377,15 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                     : t('status.online');
 
     const handlePress = React.useCallback(() => {
+        // On web/desktop tablets, clicking a session adds it as a split-view panel
+        // (up to maxPanels) and keeps us on the index route where panels render.
+        if (isTablet && isSplitViewSupported()) {
+            addPanel(session.id);
+            router.navigate('/');
+            return;
+        }
         navigateToSession(session.id);
-    }, [navigateToSession, session.id]);
+    }, [isTablet, addPanel, router, navigateToSession, session.id]);
 
     const handleContextMenu = React.useCallback((event: any) => {
         event.preventDefault?.();

@@ -21,6 +21,8 @@ import { sessionKill } from '@/sync/ops';
 import { isWorktreePath, getRepoPath, getWorktreeName } from '@/utils/worktree';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useRouter } from 'expo-router';
+import { useIsTablet } from '@/utils/responsive';
+import { useSplitViewStore, isSplitViewSupported } from '@/hooks/useSplitView';
 
 const STATUS_CONFIG: Record<SessionState, { color: string; dotColor: string; isPulsing: boolean; isConnected: boolean }> = {
     disconnected: { color: '#999', dotColor: '#999', isPulsing: false, isConnected: false },
@@ -280,6 +282,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
         ? { ...baseStatus, color: '#007AFF', dotColor: '#007AFF', isPulsing: false, isConnected: baseStatus.isConnected }
         : baseStatus;
     const navigateToSession = useNavigateToSession();
+    const router = useRouter();
+    const isTablet = useIsTablet();
+    const addPanel = useSplitViewStore(state => state.addPanel);
     const swipeableRef = React.useRef<Swipeable | null>(null);
     const swipeEnabled = Platform.OS !== 'web';
     const [actionsAnchor, setActionsAnchor] = React.useState<SessionActionsAnchor | null>(null);
@@ -297,8 +302,15 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
     }, [performArchive]);
 
     const handlePress = React.useCallback(() => {
+        // On web/desktop tablets, clicking a session adds it as a split-view panel
+        // (up to maxPanels) and keeps us on the index route where panels render.
+        if (isTablet && isSplitViewSupported()) {
+            addPanel(session.id);
+            router.navigate('/');
+            return;
+        }
         navigateToSession(session.id);
-    }, [navigateToSession, session.id]);
+    }, [isTablet, addPanel, router, navigateToSession, session.id]);
 
     const handleContextMenu = React.useCallback((event: any) => {
         event.preventDefault?.();
