@@ -40,7 +40,7 @@ export const SplitPanel = React.memo(({ sessionId, isLast }: SplitPanelProps) =>
 
             {/* Session content */}
             <View style={styles.content}>
-                <SessionView id={sessionId} />
+                <SessionView id={sessionId} inPanel />
             </View>
 
             {/* Separator between panels */}

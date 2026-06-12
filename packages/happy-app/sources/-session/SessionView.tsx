@@ -52,7 +52,10 @@ import { useUnistyles } from 'react-native-unistyles';
 import type { ModelMode, PermissionMode } from '@/components/PermissionModeSelector';
 import { resolveAgentDefaultConfig } from '@/sync/agentDefaults';
 
-export const SessionView = React.memo((props: { id: string }) => {
+// `inPanel` marks a SessionView hosted inside a split-view panel — those get
+// closed via the panel's own X button, so the chat header must not offer a
+// router.back() that would navigate away from the index route.
+export const SessionView = React.memo((props: { id: string; inPanel?: boolean }) => {
     const sessionId = props.id;
     const router = useRouter();
     const session = useSession(sessionId);
@@ -246,7 +249,13 @@ export const SessionView = React.memo((props: { id: string }) => {
                         extraPathSegment={fileViewPath ?? undefined}
                         rightSlot={(diffViewOpen || !!fileViewPath) ? headerRightSlot : null}
                         onTitlePress={session ? () => router.push(`/session/${sessionId}/info`) : undefined}
-                        onBackPress={() => router.back()}
+                        onBackPress={
+                            canOverlayBack
+                                ? () => setOverlayHistory((prev) => (
+                                    prev.cursor <= 0 ? prev : { ...prev, cursor: prev.cursor - 1 }
+                                ))
+                                : props.inPanel ? undefined : () => router.back()
+                        }
                     />
                     {/* Voice status bar below header - not on tablet (shown in sidebar) */}
                     {!isTablet && realtimeStatus !== 'disconnected' && (

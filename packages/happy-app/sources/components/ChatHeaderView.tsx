@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography } from '@/constants/Typography';
-import { useHeaderHeight, useIsTablet } from '@/utils/responsive';
+import { useHeaderHeight } from '@/utils/responsive';
 import { layout } from '@/components/layout';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -34,8 +34,7 @@ export const ChatHeaderView: React.FC<ChatHeaderViewProps> = ({
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const headerHeight = useHeaderHeight();
-    const isTablet = useIsTablet();
-    const showBackButton = !isTablet && !!onBackPress;
+    const showBackButton = !!onBackPress;
     const hasExtra = !!extraPathSegment;
 
     return (

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { layout } from '../layout';
-import { useHeaderHeight, useIsTablet } from '@/utils/responsive';
+import { useHeaderHeight } from '@/utils/responsive';
 import { Typography } from '@/constants/Typography';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -106,10 +106,11 @@ const DefaultBackButton: React.FC<{ tintColor?: string; onPress: () => void }> =
 const NavigationHeaderComponent: React.FC<NativeStackHeaderProps> = React.memo((props) => {
     const { options, route, back, navigation } = props;
     const extendedOptions = options as ExtendedNavigationOptions;
-    const isTablet = useIsTablet();
 
-    // Hide back button on tablet — navigation is handled via sidebar and persistent header
-    const shouldHideBackButton = isTablet;
+    // The back button shows on all form factors — the desktop persistent
+    // header no longer carries navigation buttons, so detail pages
+    // (settings, diff, tool results) need their own way out.
+    const shouldHideBackButton = false;
 
     // Extract title - handle both string and function types
     let title: React.ReactNode | null = null;
