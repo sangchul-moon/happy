@@ -522,6 +522,27 @@ export class ApiSessionClient extends EventEmitter {
                 }
             }));
         }
+
+        // Update metadata with last activity text from assistant messages
+        if (body.type === 'assistant' && body.message) {
+            const content = (body.message as any).content;
+            if (Array.isArray(content)) {
+                // Extract the last text block from the assistant message
+                for (let i = content.length - 1; i >= 0; i--) {
+                    if (content[i].type === 'text' && content[i].text) {
+                        const activityText = content[i].text.slice(0, 300);
+                        this.updateMetadata((metadata) => ({
+                            ...metadata,
+                            lastActivity: {
+                                text: activityText,
+                                updatedAt: Date.now()
+                            }
+                        }));
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     closeClaudeSessionTurn(status: SessionTurnEndStatus = 'completed') {

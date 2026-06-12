@@ -136,6 +136,13 @@ const stylesheet = StyleSheet.create((theme) => ({
         flexShrink: 1,
         ...Typography.default(),
     },
+    lastActivityText: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        opacity: 0.7,
+        marginBottom: 4,
+        ...Typography.default(),
+    },
     statusRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -433,6 +440,12 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                 ) : (
                     <Text style={styles.sessionSubtitle} numberOfLines={1}>
                         {session.subtitle}
+                    </Text>
+                )}
+
+                {session.lastActivity && (
+                    <Text style={styles.lastActivityText} numberOfLines={2}>
+                        {session.lastActivity}
                     </Text>
                 )}
 

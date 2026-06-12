@@ -93,6 +93,7 @@ export interface SessionRowData {
     completedTodosCount: number;
     totalTodosCount: number;
     hasUnread: boolean;
+    lastActivity: string | null;
 }
 
 function buildSessionRowData(session: Session, unreadSessionIds?: Set<string>): SessionRowData {
@@ -126,6 +127,7 @@ function buildSessionRowData(session: Session, unreadSessionIds?: Set<string>): 
         completedTodosCount: session.todos?.filter(todo => todo.status === 'completed').length ?? 0,
         totalTodosCount: session.todos?.length ?? 0,
         hasUnread: unreadSessionIds?.has(session.id) ?? false,
+        lastActivity: session.metadata?.lastActivity?.text ?? null,
     };
 }
 

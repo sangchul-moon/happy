@@ -32,6 +32,10 @@ export const MetadataSchema = z.object({
         text: z.string(),
         updatedAt: z.number()
     }).optional(),
+    lastActivity: z.object({
+        text: z.string(),
+        updatedAt: z.number()
+    }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexThreadId: z.string().optional(), // Codex app-server thread ID

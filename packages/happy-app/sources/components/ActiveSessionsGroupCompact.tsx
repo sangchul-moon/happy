@@ -471,6 +471,11 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder }: { sessi
                         {session.name}
                     </Text>
                 </View>
+                {session.lastActivity && (
+                    <Text style={styles.lastActivityText} numberOfLines={2}>
+                        {session.lastActivity}
+                    </Text>
+                )}
             </View>
         </Pressable>
     );
@@ -703,6 +708,13 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     sessionTitleDisconnected: {
         color: theme.colors.textSecondary,
+    },
+    lastActivityText: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        opacity: 0.7,
+        marginTop: 2,
+        ...Typography.default(),
     },
     leadingIndicatorSlot: {
         alignItems: 'center',

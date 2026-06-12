@@ -299,6 +299,10 @@ export type Metadata = {
     text: string,
     updatedAt: number
   },
+  lastActivity?: {
+    text: string,
+    updatedAt: number
+  },
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
   codexThreadId?: string, // Codex app-server thread ID
