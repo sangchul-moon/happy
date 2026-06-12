@@ -65,10 +65,11 @@ const stylesheet = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     sessionItem: {
-        height: 88,
+        minHeight: 88,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
+        paddingVertical: 12,
         backgroundColor: theme.colors.surface,
     },
     sessionItemContainer: {
@@ -140,7 +141,8 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 12,
         color: theme.colors.textSecondary,
         opacity: 0.7,
-        marginBottom: 4,
+        marginTop: 4,
+        marginBottom: 6,
         ...Typography.default(),
     },
     statusRow: {

@@ -56,7 +56,7 @@ function useSectionGitInfo(sessionId: string) {
 }
 
 // Section header: avatar | path + branch + tree icon + line changes | + button
-const SectionHeader = React.memo(({ session, displayPath }: { session: SessionRowData; displayPath: string }) => {
+const SectionHeader = React.memo(({ session, displayPath, machineName }: { session: SessionRowData; displayPath: string; machineName: string }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -100,6 +100,8 @@ const SectionHeader = React.memo(({ session, displayPath }: { session: SessionRo
             {/* Path + branch */}
             <View style={styles.sectionHeaderContent}>
                 <Text style={styles.sectionHeaderPath} numberOfLines={1}>
+                    {/* Host prefix — the same folder name can be open on several machines */}
+                    <Text style={styles.sectionHeaderHost}>{machineName}/</Text>
                     {repoFolderName}
                 </Text>
                 {hasBranch && (
@@ -245,6 +247,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId }: Acti
                                     <SectionHeader
                                         session={firstSession}
                                         displayPath={projectGroup.displayPath}
+                                        machineName={machineGroup.machineName}
                                     />
                                     <View style={styles.projectCard}>
                                         {projectGroup.sessions.map((session, index) => (
@@ -613,6 +616,11 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontWeight: Platform.select({ ios: 'normal', default: '500' }),
         flexShrink: 1,
     },
+    sectionHeaderHost: {
+        color: theme.colors.textSecondary,
+        opacity: 0.8,
+        fontWeight: 'normal',
+    },
     branchRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -677,10 +685,11 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     // Session row styles
     sessionRow: {
-        height: 56,
+        minHeight: 56,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
+        paddingVertical: 8,
         backgroundColor: theme.colors.surface,
     },
     sessionRowWithBorder: {
@@ -713,7 +722,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 12,
         color: theme.colors.textSecondary,
         opacity: 0.7,
-        marginTop: 2,
+        marginTop: 5,
         ...Typography.default(),
     },
     leadingIndicatorSlot: {
