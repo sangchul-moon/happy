@@ -523,6 +523,23 @@ export class ApiSessionClient extends EventEmitter {
             }));
         }
 
+        // Auto-generate session title from first meaningful user message when no summary exists
+        if (body.type === 'user' && !this.metadata?.summary) {
+            const userText = this.extractUserMessageText(body);
+            if (userText && !userText.startsWith('/') && !userText.startsWith('<command-name>')) {
+                const titleText = userText.split('\n')[0].slice(0, 60);
+                if (titleText.length > 0) {
+                    this.updateMetadata((metadata) => ({
+                        ...metadata,
+                        summary: {
+                            text: titleText,
+                            updatedAt: Date.now()
+                        }
+                    }));
+                }
+            }
+        }
+
         // Update metadata with last activity text from assistant messages
         if (body.type === 'assistant' && body.message) {
             const content = (body.message as any).content;
@@ -543,6 +560,20 @@ export class ApiSessionClient extends EventEmitter {
                 }
             }
         }
+    }
+
+    private extractUserMessageText(body: RawJSONLines): string | null {
+        if (body.type !== 'user') return null;
+        const content = body.message?.content;
+        if (typeof content === 'string') return content.trim();
+        if (Array.isArray(content)) {
+            for (const block of content) {
+                if (block.type === 'text' && typeof block.text === 'string') {
+                    return block.text.trim();
+                }
+            }
+        }
+        return null;
     }
 
     closeClaudeSessionTurn(status: SessionTurnEndStatus = 'completed') {
